@@ -164,6 +164,53 @@ export function toDeadlineItems(
     .filter((item) => item.dueDateText || /\b(due|deadline|today|tomorrow|overdue|upcoming)\b/i.test(item.rawText));
 }
 
+export function extractAllTasksDeadlinesFromText(
+  text: string,
+  sourceUrl: string,
+  course: string | undefined,
+  referenceDate = new Date(),
+): DeadlineItem[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\u00a0/g, " ").trim())
+    .filter(Boolean);
+  const items: DeadlineItem[] = [];
+
+  for (let index = 0; index < lines.length - 2; index += 1) {
+    const month = normalizeMonth(lines[index]);
+    const day = Number.parseInt(lines[index + 1], 10);
+    if (!month || !Number.isInteger(day) || day < 1 || day > 31) {
+      continue;
+    }
+
+    const title = lines[index + 2];
+    if (!isLikelyTaskTitle(title)) {
+      continue;
+    }
+
+    const blockEnd = nextMonthDayIndex(lines, index + 2);
+    const block = lines.slice(index, blockEnd);
+    const timeText = block.find((line) => /\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b.+\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/i.test(line));
+    const status = block.find((line) => /^(Submitted|Pending|Late|Missing|Overdue|Not Submitted|Not Assessed Yet|Completed)$/i.test(line));
+    const dueDateText = [month, String(day), timeText].filter(Boolean).join(" ");
+    const dueAt = dateFromMonthDay(month, day, timeText, referenceDate)?.toISOString();
+
+    items.push({
+      title,
+      course,
+      dueDateText,
+      dueAt,
+      status,
+      sourceUrl,
+      rawText: block.join("\n"),
+    });
+
+    index = blockEnd - 1;
+  }
+
+  return items;
+}
+
 export function toGradeItems(rawItems: RawExtractedItem[], sourceUrl: string): GradeItem[] {
   return rawItems
     .map((raw) => {
@@ -279,4 +326,58 @@ function firstMatch(text: string, pattern: RegExp): string | undefined {
 function extractExplicitGpa(text: string): number | undefined {
   const match = text.match(/(?:\bGPA\b|Grade Point Average)\s*(?:[:=]|is)?\s*([0-4](?:\.\d{1,3})?)/i);
   return match ? Number.parseFloat(match[1]) : undefined;
+}
+
+function nextMonthDayIndex(lines: string[], start: number): number {
+  for (let index = start; index < lines.length - 1; index += 1) {
+    if (normalizeMonth(lines[index]) && /^\d{1,2}$/.test(lines[index + 1])) {
+      return index;
+    }
+  }
+  return Math.min(lines.length, start + 12);
+}
+
+function normalizeMonth(value: string): string | undefined {
+  const match = value.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)$/i);
+  if (!match) {
+    return undefined;
+  }
+
+  const normalized = match[1].slice(0, 3).toUpperCase();
+  return normalized === "SEP" ? "SEP" : normalized;
+}
+
+function isLikelyTaskTitle(value: string | undefined): value is string {
+  if (!value || value.length < 3 || value.length > 180) {
+    return false;
+  }
+
+  return !/^(Formative|Summative|Assessment|Submitted|Pending|Late|Missing|Overdue|Not Submitted|Not Assessed Yet|A|B|C|D|F|N\/A|\d+(?:\.\d+)?\s*\/\s*\d+)/i.test(value);
+}
+
+function dateFromMonthDay(month: string, day: number, timeText: string | undefined, referenceDate: Date): Date | undefined {
+  const monthIndex = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"].indexOf(month);
+  if (monthIndex < 0) {
+    return undefined;
+  }
+
+  const date = new Date(referenceDate);
+  date.setFullYear(referenceDate.getFullYear(), monthIndex, day);
+  date.setHours(23, 59, 0, 0);
+
+  const timeMatch = timeText?.match(/\b(\d{1,2}):(\d{2})\s*(AM|PM)\b/i);
+  if (timeMatch) {
+    let hours = Number.parseInt(timeMatch[1], 10);
+    const minutes = Number.parseInt(timeMatch[2], 10);
+    const meridiem = timeMatch[3].toUpperCase();
+    if (meridiem === "PM" && hours < 12) hours += 12;
+    if (meridiem === "AM" && hours === 12) hours = 0;
+    date.setHours(hours, minutes, 0, 0);
+  }
+
+  if (date.getTime() - referenceDate.getTime() > 45 * 24 * 60 * 60 * 1000 && monthIndex >= 7) {
+    date.setFullYear(date.getFullYear() - 1);
+  }
+
+  return date;
 }

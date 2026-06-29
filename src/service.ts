@@ -3,6 +3,7 @@ import {
   computeGpaSummary,
   dedupeDeadlines,
   dedupeGrades,
+  extractAllTasksDeadlinesFromText,
   extractRawItems,
   toDeadlineItems,
   toGradeItems,
@@ -257,6 +258,7 @@ export class ManageBacService {
       const page = await this.client.goto(snapshot.url);
       const raw = await extractRawItems(page, "deadline");
       items.push(...toDeadlineItems(raw, snapshot.url, now).map((item) => ({ ...item, course: item.course ?? target.name })));
+      items.push(...extractAllTasksDeadlinesFromText(snapshot.text, snapshot.url, target.name, now));
     }
 
     const filtered = dedupeDeadlines(items)
@@ -397,7 +399,7 @@ export class ManageBacService {
   private async discoverClass(kind: DiscoveryKind, target: ClassSummary): Promise<DiscoveryResult> {
     const classRoot = classRootFromPath(target.path);
     const seeds = classTargetPaths(target.path, kind);
-    return this.crawl(kind, seeds, kind === "deadline" ? 8 : 12, classRoot);
+    return this.crawl(kind, seeds, kind === "deadline" ? 2 : 12, classRoot, kind !== "deadline");
   }
 
   private async crawl(
@@ -405,6 +407,7 @@ export class ManageBacService {
     seeds: string[],
     maxPages: number,
     restrictToClassRoot?: string,
+    followLinks = true,
   ): Promise<DiscoveryResult> {
     const queue = [...seeds];
     const visited = new Set<string>();
@@ -427,15 +430,17 @@ export class ManageBacService {
         const snapshot = await this.client.snapshot(path);
         snapshots.push(snapshot);
 
-        for (const link of relevantLinks(snapshot.links, kind, this.client.urlFor("/"))) {
-          const url = new URL(link.href);
-          if (restrictToClassRoot && !url.pathname.startsWith(restrictToClassRoot)) {
-            continue;
-          }
-          queue.push(url.pathname + url.search);
+        if (followLinks) {
+          for (const link of relevantLinks(snapshot.links, kind, this.client.urlFor("/"))) {
+            const url = new URL(link.href);
+            if (restrictToClassRoot && !url.pathname.startsWith(restrictToClassRoot)) {
+              continue;
+            }
+            queue.push(url.pathname + url.search);
 
-          for (const variant of classPathVariants(url.pathname)) {
-            queue.push(variant);
+            for (const variant of classPathVariants(url.pathname, kind)) {
+              queue.push(variant);
+            }
           }
         }
       } catch (error) {
@@ -547,7 +552,7 @@ function relevantLinks(links: LinkSummary[], kind: DiscoveryKind, baseUrl: strin
   const base = new URL(baseUrl);
   const pattern =
     kind === "deadline"
-      ? /\b(task|deadline|assignment|assessment|calendar|upcoming|todo|class|course)\b/i
+      ? /\b(task|tasks|unit|units|deadline|assignment|assessment|calendar|upcoming|todo|class|course|view all tasks)\b/i
       : /\b(grade|score|mark|report|transcript|class|course|task|unit|assessment|result)\b/i;
 
   return links.filter((link) => {
@@ -560,20 +565,16 @@ function relevantLinks(links: LinkSummary[], kind: DiscoveryKind, baseUrl: strin
   });
 }
 
-function classPathVariants(pathname: string): string[] {
+function classPathVariants(pathname: string, kind: DiscoveryKind): string[] {
   const match = pathname.match(/^(.*\/classes\/\d+)(?:\/.*)?$/);
   if (!match) {
     return [];
   }
 
   const classRoot = match[1];
-  return [
-    `${classRoot}/core/tasks`,
-    `${classRoot}/tasks`,
-    `${classRoot}/tasks-and-units`,
-    `${classRoot}/grades`,
-    `${classRoot}/reports`,
-  ];
+  return kind === "deadline"
+    ? [`${classRoot}/units`, `${classRoot}/core_tasks`]
+    : [`${classRoot}/grades`, `${classRoot}/reports`, `${classRoot}/core_tasks`];
 }
 
 function classTargetPaths(path: string, kind: DiscoveryKind): string[] {
@@ -584,24 +585,20 @@ function classTargetPaths(path: string, kind: DiscoveryKind): string[] {
   const variants =
     kind === "deadline"
       ? [
-          `${root}/core/tasks`,
-          `${root}/tasks`,
-          `${root}/tasks-and-units`,
-          `${root}/calendar`,
-          `${root}/assignments`,
-          `${root}/assessments`,
+          `${root}/units`,
+          `${root}/core_tasks`,
         ]
       : [
           `${root}/grades`,
           `${root}/reports`,
           `${root}/transcript`,
-          `${root}/core/tasks`,
+          `${root}/core_tasks`,
           `${root}/tasks-and-units`,
           `${root}/assignments`,
           `${root}/assessments`,
         ];
 
-  return dedupeStrings([pathname + search, root, ...variants]);
+  return dedupeStrings([...variants, pathname + search, root]);
 }
 
 function classRootFromPath(pathname: string): string {
