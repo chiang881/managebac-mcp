@@ -5,3 +5,4 @@ dist/
 !.env.example
 .managebac/
 *.log
+.DS_Store
