@@ -28,6 +28,7 @@ export interface RawExtractedItem {
 export interface DeadlineItem {
   title: string;
   course?: string;
+  category?: "upcoming" | "past" | "overdue";
   dueDateText?: string;
   dueAt?: string;
   status?: string;

@@ -5,6 +5,7 @@ import {
   dedupeGrades,
   extractAllTasksDeadlinesFromText,
   extractRawItems,
+  extractTasksAndDeadlinesFromText,
   toDeadlineItems,
   toGradeItems,
 } from "./extractors.js";
@@ -29,6 +30,7 @@ interface DeadlineOptions {
   daysAhead: number;
   includeCompleted: boolean;
   maxItems: number;
+  view: DeadlineView;
   path?: string;
 }
 
@@ -57,17 +59,10 @@ interface ClassWeightOptions extends ClassSelector {
 
 const CLASS_SEEDS = ["/", "/student", "/student/dashboard", "/student/classes", "/classes"];
 
-const DEADLINE_SEEDS = [
-  "/",
-  "/student",
-  "/student/dashboard",
-  "/student/tasks",
-  "/student/tasks-and-deadlines",
-  "/tasks",
-  "/calendar",
-  "/student/calendar",
-  "/student/classes",
-];
+type DeadlineView = "upcoming" | "past" | "overdue" | "all";
+type ConcreteDeadlineView = Exclude<DeadlineView, "all">;
+
+const TASKS_AND_DEADLINES_PATH = "/student/tasks_and_deadlines";
 
 const GRADE_SEEDS = [
   "/",
@@ -151,15 +146,21 @@ export class ManageBacService {
     pagesVisited: string[];
     errors: Array<{ path: string; message: string }>;
   }> {
-    const discovery = await this.discover("deadline", options.path);
+    const discovery = await this.discoverDeadlines(options);
     const now = new Date();
     const cutoff = new Date(now.getTime() + options.daysAhead * 24 * 60 * 60 * 1000);
     const items: DeadlineItem[] = [];
 
     for (const snapshot of discovery.snapshots) {
-      const page = await this.client.goto(snapshot.url);
-      const raw = await extractRawItems(page, "deadline");
-      items.push(...toDeadlineItems(raw, snapshot.url, now));
+      const view = deadlineViewFromUrl(snapshot.url) ?? (options.view === "all" ? "upcoming" : options.view);
+      const parsed = extractTasksAndDeadlinesFromText(snapshot.text, snapshot.url, view, snapshot.links, now);
+      items.push(...parsed);
+
+      if (parsed.length === 0 && options.path) {
+        const page = await this.client.goto(snapshot.url);
+        const raw = await extractRawItems(page, "deadline");
+        items.push(...toDeadlineItems(raw, snapshot.url, now));
+      }
     }
 
     const filtered = dedupeDeadlines(items)
@@ -392,8 +393,24 @@ export class ManageBacService {
   }
 
   private async discover(kind: DiscoveryKind, pathOverride?: string): Promise<DiscoveryResult> {
-    const seeds = pathOverride ? [pathOverride] : kind === "deadline" ? [...DEADLINE_SEEDS] : [...GRADE_SEEDS];
+    const seeds = pathOverride ? [pathOverride] : kind === "deadline" ? deadlinePathsForView("upcoming") : [...GRADE_SEEDS];
     return this.crawl(kind, seeds, pathOverride ? 1 : kind === "deadline" ? 12 : 18);
+  }
+
+  private async discoverDeadlines(options: DeadlineOptions): Promise<DiscoveryResult> {
+    const paths = options.path ? [options.path] : deadlinePathsForView(options.view);
+    const snapshots: PageSnapshot[] = [];
+    const errors: Array<{ path: string; message: string }> = [];
+
+    for (const path of paths) {
+      try {
+        snapshots.push(await this.client.snapshot(path));
+      } catch (error) {
+        errors.push({ path, message: errorMessage(error) });
+      }
+    }
+
+    return { snapshots, errors };
   }
 
   private async discoverClass(kind: DiscoveryKind, target: ClassSummary): Promise<DiscoveryResult> {
@@ -717,6 +734,16 @@ function dedupeStrings(values: string[]): string[] {
     seen.add(value);
     return true;
   });
+}
+
+function deadlinePathsForView(view: DeadlineView): string[] {
+  const views: ConcreteDeadlineView[] = view === "all" ? ["upcoming", "past", "overdue"] : [view];
+  return views.map((item) => `${TASKS_AND_DEADLINES_PATH}?view=${item}`);
+}
+
+function deadlineViewFromUrl(value: string): ConcreteDeadlineView | undefined {
+  const view = new URL(value).searchParams.get("view");
+  return view === "upcoming" || view === "past" || view === "overdue" ? view : undefined;
 }
 
 function safeUrl(value: string): URL | undefined {

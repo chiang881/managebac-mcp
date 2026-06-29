@@ -114,6 +114,12 @@ export class ManageBacWebClient {
   }
 
   private async login(page: Page): Promise<void> {
+    if (this.config.loginMode !== "password") {
+      throw new Error(
+        "ManageBac manual login is enabled. Run `npm run login` to save `.managebac/storage-state.json`, or set MANAGEBAC_LOGIN_MODE=password with MANAGEBAC_EMAIL and MANAGEBAC_PASSWORD to enable automatic password login.",
+      );
+    }
+
     requireCredentials(this.config);
     await this.assertLoginAttemptAllowed();
 

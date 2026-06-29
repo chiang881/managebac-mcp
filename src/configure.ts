@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 
 const envPath = path.resolve(process.cwd(), ".env");
 const defaults = {
+  MANAGEBAC_LOGIN_MODE: "manual",
   MANAGEBAC_HEADLESS: "true",
   MANAGEBAC_TIMEOUT_MS: "30000",
   MANAGEBAC_LOGIN_COOLDOWN_MS: "900000",
@@ -17,7 +18,9 @@ const defaults = {
 
 async function main(): Promise<void> {
   if (!input.isTTY || !output.isTTY) {
-    throw new Error("Interactive terminal required. Set MANAGEBAC_BASE_URL, MANAGEBAC_EMAIL, and MANAGEBAC_PASSWORD manually in non-interactive deployments.");
+    throw new Error(
+      "Interactive terminal required. Set MANAGEBAC_BASE_URL and MANAGEBAC_LOGIN_MODE manually in non-interactive deployments.",
+    );
   }
 
   const existing = await readExistingEnv();
@@ -25,32 +28,47 @@ async function main(): Promise<void> {
 
   try {
     const baseUrl = await ask(rl, "ManageBac instance URL, e.g. https://school.managebac.com", existing.MANAGEBAC_BASE_URL || "");
-    const email = await ask(rl, "ManageBac account/email", existing.MANAGEBAC_EMAIL || "");
-    const previousPassword = existing.MANAGEBAC_PASSWORD || "";
-    const password = await askHidden(
-      previousPassword ? "ManageBac password [press Enter to keep existing]" : "ManageBac password",
+    const loginMode = normalizeLoginMode(
+      await ask(rl, "Login mode: manual or password", existing.MANAGEBAC_LOGIN_MODE || defaults.MANAGEBAC_LOGIN_MODE),
     );
 
     if (!baseUrl.trim()) {
       throw new Error("ManageBac instance URL is required.");
-    }
-    if (!email.trim()) {
-      throw new Error("ManageBac account/email is required.");
-    }
-    if (!password.trim() && !previousPassword) {
-      throw new Error("ManageBac password is required.");
     }
 
     const nextEnv: Record<string, string> = {
       ...defaults,
       ...existing,
       MANAGEBAC_BASE_URL: normalizeBaseUrl(baseUrl),
-      MANAGEBAC_EMAIL: email.trim(),
-      MANAGEBAC_PASSWORD: password || previousPassword,
+      MANAGEBAC_LOGIN_MODE: loginMode,
     };
+
+    if (loginMode === "password") {
+      const email = await ask(rl, "ManageBac account/email", existing.MANAGEBAC_EMAIL || "");
+      const previousPassword = existing.MANAGEBAC_PASSWORD || "";
+      const password = await askHidden(
+        previousPassword ? "ManageBac password [press Enter to keep existing]" : "ManageBac password",
+      );
+
+      if (!email.trim()) {
+        throw new Error("ManageBac account/email is required for password login mode.");
+      }
+      if (!password.trim() && !previousPassword) {
+        throw new Error("ManageBac password is required for password login mode.");
+      }
+
+      nextEnv.MANAGEBAC_EMAIL = email.trim();
+      nextEnv.MANAGEBAC_PASSWORD = password || previousPassword;
+    } else {
+      delete nextEnv.MANAGEBAC_EMAIL;
+      delete nextEnv.MANAGEBAC_PASSWORD;
+    }
 
     await writeEnv(nextEnv);
     console.log(`Saved ManageBac configuration to ${envPath}`);
+    if (loginMode === "manual") {
+      console.log("Next step: run `npm run login` to open a browser and save the ManageBac session.");
+    }
   } finally {
     rl.close();
   }
@@ -120,6 +138,7 @@ async function askHidden(label: string): Promise<string> {
 async function writeEnv(values: Record<string, string>): Promise<void> {
   const preferredOrder = [
     "MANAGEBAC_BASE_URL",
+    "MANAGEBAC_LOGIN_MODE",
     "MANAGEBAC_EMAIL",
     "MANAGEBAC_PASSWORD",
     "MANAGEBAC_HEADLESS",
@@ -142,6 +161,15 @@ function quoteEnv(value: string): string {
   }
 
   return JSON.stringify(value);
+}
+
+function normalizeLoginMode(raw: string): "manual" | "password" {
+  const value = raw.trim().toLowerCase();
+  if (value === "manual" || value === "password") {
+    return value;
+  }
+
+  throw new Error("Login mode must be `manual` or `password`.");
 }
 
 function normalizeBaseUrl(raw: string): string {

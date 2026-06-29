@@ -37,21 +37,31 @@ server.registerTool(
 server.registerTool(
   "managebac_get_all_deadlines",
   {
-    description: "Get all upcoming ManageBac DDL/deadlines across classes.",
+    description: "Get ManageBac Tasks & Deadlines from the student homepage: upcoming, past, overdue, or all.",
     inputSchema: {
+      view: z
+        .enum(["upcoming", "past", "overdue", "all"])
+        .optional()
+        .describe("Which Tasks & Deadlines tab to read. Defaults to upcoming."),
       daysAhead: z.number().int().min(1).max(366).optional().describe("How many days ahead to include. Defaults to 30."),
-      includeCompleted: z.boolean().optional().describe("Include submitted/completed tasks. Defaults to false."),
+      includeCompleted: z
+        .boolean()
+        .optional()
+        .describe("Include submitted/completed tasks. Defaults to true for past/all, otherwise false."),
       maxItems: z.number().int().min(1).max(200).optional().describe("Maximum items to return. Defaults to 50."),
     },
   },
-  async ({ daysAhead, includeCompleted, maxItems }) =>
-    runTool(() =>
+  async ({ view, daysAhead, includeCompleted, maxItems }) => {
+    const selectedView = view ?? "upcoming";
+    return runTool(() =>
       service.getDeadlines({
+        view: selectedView,
         daysAhead: daysAhead ?? 30,
-        includeCompleted: includeCompleted ?? false,
+        includeCompleted: includeCompleted ?? (selectedView === "past" || selectedView === "all"),
         maxItems: maxItems ?? 50,
       }),
-    ),
+    );
+  },
 );
 
 server.registerTool(
@@ -73,6 +83,7 @@ server.registerTool(
         classId,
         className,
         path,
+        view: "upcoming",
         daysAhead: daysAhead ?? 30,
         includeCompleted: includeCompleted ?? false,
         maxItems: maxItems ?? 50,

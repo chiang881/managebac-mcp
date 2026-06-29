@@ -8,6 +8,7 @@ const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 export interface ManageBacConfig {
   baseUrl: string;
+  loginMode: "manual" | "password";
   email?: string;
   password?: string;
   headless: boolean;
@@ -30,6 +31,15 @@ function boolFromEnv(value: string | undefined, fallback: boolean): boolean {
 function intFromEnv(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function loginModeFromEnv(value: string | undefined): "manual" | "password" {
+  const normalized = (value || "manual").trim().toLowerCase();
+  if (normalized === "manual" || normalized === "password") {
+    return normalized;
+  }
+
+  throw new Error("Invalid MANAGEBAC_LOGIN_MODE. Use `manual` or `password`.");
 }
 
 function absoluteFromPackageRoot(value: string): string {
@@ -60,6 +70,7 @@ export function loadConfig(): ManageBacConfig {
 
   return {
     baseUrl,
+    loginMode: loginModeFromEnv(process.env.MANAGEBAC_LOGIN_MODE),
     email: process.env.MANAGEBAC_EMAIL?.trim(),
     password: process.env.MANAGEBAC_PASSWORD,
     headless: boolFromEnv(process.env.MANAGEBAC_HEADLESS, true),

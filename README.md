@@ -20,30 +20,28 @@
 
 ## 为您的 AI Agent 接入 ManageBac
 
-这是一个本地 stdio MCP 服务器，可以让 Claude Code、OpenCode 等 AI Agent 通过学生账号读取 ManageBac 中的 DDL、成绩条目和页面明确显示的 GPA。
+这是一个本地 stdio MCP 服务器，可以让 Claude Code、OpenCode 等 AI Agent 读取 ManageBac 中的 DDL、class、成绩条目和页面明确显示的 GPA。
 
-实例地址需要在部署时配置，例如：
-
-```env
-MANAGEBAC_BASE_URL=https://your-school.managebac.com
-```
+默认登录方式是手动浏览器登录：先运行 `npm run login`，程序会保存 `.managebac/storage-state.json`，之后 MCP 工具复用这个 session。只有显式设置 `MANAGEBAC_LOGIN_MODE=password` 时，程序才会尝试自动提交账号密码。
 
 ## ✨ 功能特性
 
 - 获取 class / course 列表
+- 从主页 `Tasks & Deadlines` 读取 `upcoming`、`past`、`overdue` 三个栏目
 - 查看全部 DDL，以及查看单科 DDL
 - 查看全部成绩，以及查看某一门 class 的成绩
 - 读取全局 GPA / 单科 GPA；读不到页面明确显示的 GPA 时直接返回 error
+- 禁止按百分制或 IB 1-7 成绩估算非加权 4.0 GPA
 - 读取某一门课近期 N 条成绩
 - 读取某一门课的成绩占比 / category weight
-- 登录态复用，避免每次工具调用都重新登录
-- 交互式部署配置，运行时询问实例地址、账号和密码
+- 默认手动登录并记录 session，降低账号被锁风险
+- 支持自动密码登录，但必须主动开启
 
 ## 🛠️ 工具列表
 
-- `managebac_check_session`: 登录并确认能读取学生首页
+- `managebac_check_session`: 确认当前 session 能读取学生首页
 - `managebac_get_classes`: 获取 class / course 列表
-- `managebac_get_all_deadlines`: 查看全部 DDL
+- `managebac_get_all_deadlines`: 查看主页 Tasks & Deadlines，可选 `view: upcoming | past | overdue | all`
 - `managebac_get_class_deadlines`: 查看单科 DDL
 - `managebac_get_grades`: 查看全部成绩 / 分数条目
 - `managebac_get_class_grades`: 获取某一门 class 的成绩
@@ -65,12 +63,16 @@ cd managebac-mcp
 npm install
 npm run build
 npm run deploy
-
-如果学校登录页或账号策略不允许自动提交密码，请改用手动登录保存会话：
 npm run login
 
 然后把这个 MCP server 配置为 stdio：
-node /绝对路径/managebac-mcp/dist/index.js
+node /absolute/path/managebac-mcp/dist/index.js
+```
+
+`npm run deploy` 会询问 ManageBac 实例地址。不要把默认实例写死成某个学校，请填写自己的实例，例如：
+
+```env
+MANAGEBAC_BASE_URL=https://your-school.managebac.com
 ```
 
 ### 手动安装
@@ -88,84 +90,81 @@ npm run build
 npm run install-browser
 ```
 
-### 部署与配置
-
-推荐使用交互式配置向导。它会询问 ManageBac 实例地址、账号和密码，并把结果保存到本地 `.env`：
-
-```bash
-npm run configure
-```
-
-部署/首次配置时也可以直接运行：
-
-```bash
-npm run deploy
-```
-
-`deploy` 会先构建项目，然后进入同一个交互式配置向导。密码输入不会回显，生成的 `.env` 权限会设置为 `0600`。
-
-如果账号刚被锁定，先不要反复运行自动登录。服务会在一次失败登录后进入本地冷却期，默认 15 分钟。确认网页可以手动登录后，可以运行：
-
-```bash
-npm run login
-```
-
-这个命令会打开浏览器让你手动登录，然后把登录态保存到 `.managebac/storage-state.json`，后续 MCP 工具会复用它。
-
-也可以手动复制示例配置：
+复制配置文件：
 
 ```bash
 cp .env.example .env
 ```
 
-然后在 `.env` 里填写：
+最小配置：
 
 ```env
-MANAGEBAC_EMAIL=your.email@example.com
-MANAGEBAC_PASSWORD=your-password
+MANAGEBAC_BASE_URL=https://your-school.managebac.com
+MANAGEBAC_LOGIN_MODE=manual
+MANAGEBAC_STORAGE_STATE=.managebac/storage-state.json
 ```
 
-可选登录保护配置：
+保存配置后，打开浏览器手动登录并记录 session：
+
+```bash
+npm run login
+```
+
+### 自动密码登录
+
+默认不自动提交密码。如果确实需要自动登录，在 `.env` 或 MCP 客户端 `env` 中显式设置：
 
 ```env
+MANAGEBAC_LOGIN_MODE=password
+MANAGEBAC_EMAIL=your.email@example.com
+MANAGEBAC_PASSWORD=your-password
 MANAGEBAC_LOGIN_COOLDOWN_MS=900000
 MANAGEBAC_LOGIN_FORCE=false
 ```
 
-`.env`、登录态和调试文件已经在 `.gitignore` 中忽略。不要把账号密码写进代码或提交。
+如果账号刚被锁定，先不要反复运行自动登录。确认网页可以手动登录后，运行 `npm run login` 重新保存 session。
 
-## MCP 客户端配置
+### 非交互 / headless 部署
 
-如果已经通过 `npm run configure` 生成 `.env`，MCP 客户端可以只配置命令：
+`npm run deploy` 会运行交互式配置向导，非交互环境会报错：
 
-```json
-{
-  "mcpServers": {
-    "managebac": {
-      "command": "node",
-      "args": ["/Users/jiangzongji/Desktop/main/managebac mcp/dist/index.js"]
-    }
-  }
-}
+```text
+Interactive terminal required. Set MANAGEBAC_BASE_URL and MANAGEBAC_LOGIN_MODE manually in non-interactive deployments.
 ```
 
-也可以把配置放进 MCP 客户端的 `env`：
+解决方式有两种：
+
+1. 直接编辑 `.env`，至少写入 `MANAGEBAC_BASE_URL` 和 `MANAGEBAC_LOGIN_MODE=manual`
+2. 在 MCP 客户端配置的 `env` 中传入这些变量
+
+`.env`、`.managebac/storage-state.json` 和调试文件已经在 `.gitignore` 中忽略。不要把账号密码或登录态提交到 GitHub。
+
+## Claude Code 配置
+
+Claude Code 的项目 MCP 配置应写在仓库根目录的 `.mcp.json`，不是 `~/.claude/settings.json`：
 
 ```json
 {
   "mcpServers": {
     "managebac": {
       "command": "node",
-      "args": ["/Users/jiangzongji/Desktop/main/managebac mcp/dist/index.js"],
+      "args": ["/absolute/path/managebac-mcp/dist/index.js"],
       "env": {
         "MANAGEBAC_BASE_URL": "https://your-school.managebac.com",
-        "MANAGEBAC_EMAIL": "your.email@example.com",
-        "MANAGEBAC_PASSWORD": "your-password"
+        "MANAGEBAC_LOGIN_MODE": "manual",
+        "MANAGEBAC_STORAGE_STATE": "/absolute/path/managebac-mcp/.managebac/storage-state.json"
       }
     }
   }
 }
 ```
+
+配置后通常还需要完成 Claude Code 的审批链：
+
+1. 在 `.claude/settings.local.json` 中允许项目 MCP server，例如设置 `enabledMcpjsonServers`，或使用 `enableAllProjectMcpServers: true`
+2. 重启 Claude Code，让 `.mcp.json` 和权限配置生效
+3. 重启后运行 `/mcp`，如果 `managebac` 仍处于 pending 状态，手动批准
+4. 第一次调用每个 MCP tool 时，Claude Code 可能还会要求单独 allow
 
 ## 调试建议
 
@@ -174,7 +173,7 @@ MANAGEBAC_LOGIN_FORCE=false
 ```text
 managebac_list_links({ "match": "task" })
 managebac_list_links({ "match": "grade" })
-managebac_debug_snapshot({ "path": "/student/classes/你的class路径/core/tasks" })
+managebac_debug_snapshot({ "path": "/student/tasks_and_deadlines?view=upcoming" })
 ```
 
-然后把找到的 class path 传给 `managebac_get_class_deadlines` 或 `managebac_get_class_gpa` 的 `path` 参数。
+单科 DDL 位于 `Classes -> 某门课 -> Tasks & Units -> View All Tasks`。可以把找到的 class path 传给 `managebac_get_class_deadlines` 或 `managebac_get_class_gpa` 的 `path` 参数。

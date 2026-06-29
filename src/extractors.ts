@@ -1,8 +1,9 @@
 import { Page } from "playwright";
 import * as chrono from "chrono-node";
-import { DeadlineItem, GpaSummary, GradeItem, RawExtractedItem } from "./types.js";
+import { DeadlineItem, GpaSummary, GradeItem, LinkSummary, RawExtractedItem } from "./types.js";
 
 type ItemKind = "deadline" | "grade";
+type DeadlineCategory = NonNullable<DeadlineItem["category"]>;
 
 export async function extractRawItems(page: Page, kind: ItemKind): Promise<RawExtractedItem[]> {
   return page.evaluate((itemKind) => {
@@ -211,6 +212,56 @@ export function extractAllTasksDeadlinesFromText(
   return items;
 }
 
+export function extractTasksAndDeadlinesFromText(
+  text: string,
+  sourceUrl: string,
+  category: DeadlineCategory,
+  links: LinkSummary[] = [],
+  referenceDate = new Date(),
+): DeadlineItem[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => cleanTextLine(line))
+    .filter(Boolean);
+  const dueIndexes = lines
+    .map((line, index) => (parseManageBacDueDate(line, category, referenceDate) ? index : -1))
+    .filter((index) => index >= 0);
+  const items: DeadlineItem[] = [];
+
+  for (let index = 0; index < dueIndexes.length; index += 1) {
+    const dueIndex = dueIndexes[index];
+    const titleIndex = dueIndex - 1;
+    const title = lines[titleIndex];
+    const due = parseManageBacDueDate(lines[dueIndex], category, referenceDate);
+    if (!title || !due || !isLikelyTaskPageTitle(title)) {
+      continue;
+    }
+
+    const nextDueIndex = dueIndexes[index + 1];
+    const blockEnd =
+      nextDueIndex === undefined
+        ? footerIndex(lines, dueIndex + 1) ?? lines.length
+        : Math.max(dueIndex + 1, itemStartIndexForDue(lines, nextDueIndex));
+    const block = lines.slice(titleIndex, blockEnd);
+    const course = courseLine(lines[dueIndex + 1]);
+    const status = block.find((line) => isTaskStatus(line));
+
+    items.push({
+      title,
+      course,
+      category,
+      dueDateText: due.text,
+      dueAt: due.date.toISOString(),
+      status,
+      sourceUrl,
+      href: hrefForTitle(title, links),
+      rawText: block.join("\n"),
+    });
+  }
+
+  return items;
+}
+
 export function toGradeItems(rawItems: RawExtractedItem[], sourceUrl: string): GradeItem[] {
   return rawItems
     .map((raw) => {
@@ -352,7 +403,7 @@ function isLikelyTaskTitle(value: string | undefined): value is string {
     return false;
   }
 
-  return !/^(Formative|Summative|Assessment|Submitted|Pending|Late|Missing|Overdue|Not Submitted|Not Assessed Yet|A|B|C|D|F|N\/A|\d+(?:\.\d+)?\s*\/\s*\d+)/i.test(value);
+  return !/^(Formative|Summative|Assessment|Submitted|Pending|Late|Missing|Overdue|Not Submitted|Not Assessed Yet|[ABCDF]\b|N\/A|\d+(?:\.\d+)?\s*\/\s*\d+)/i.test(value);
 }
 
 function dateFromMonthDay(month: string, day: number, timeText: string | undefined, referenceDate: Date): Date | undefined {
@@ -380,4 +431,118 @@ function dateFromMonthDay(month: string, day: number, timeText: string | undefin
   }
 
   return date;
+}
+
+function parseManageBacDueDate(
+  value: string,
+  category: DeadlineCategory,
+  referenceDate: Date,
+): { text: string; date: Date } | undefined {
+  const match = value
+    .trim()
+    .match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+(\d{1,2}),\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) {
+    return undefined;
+  }
+
+  const month = normalizeMonth(match[1]);
+  const monthIndex = month
+    ? ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"].indexOf(month)
+    : -1;
+  if (monthIndex < 0) {
+    return undefined;
+  }
+
+  const day = Number.parseInt(match[2], 10);
+  let hours = Number.parseInt(match[3], 10);
+  const minutes = Number.parseInt(match[4], 10);
+  const meridiem = match[5].toUpperCase();
+  if (meridiem === "PM" && hours < 12) hours += 12;
+  if (meridiem === "AM" && hours === 12) hours = 0;
+
+  let year = referenceDate.getFullYear();
+  let date = new Date(referenceDate);
+  date.setFullYear(year, monthIndex, day);
+  date.setHours(hours, minutes, 0, 0);
+
+  const startOfToday = new Date(referenceDate);
+  startOfToday.setHours(0, 0, 0, 0);
+
+  if (category === "upcoming" && date.getTime() < startOfToday.getTime() && monthIndex < referenceDate.getMonth()) {
+    year += 1;
+  }
+
+  if (category !== "upcoming" && date.getTime() - referenceDate.getTime() > 45 * 24 * 60 * 60 * 1000) {
+    year -= 1;
+  }
+
+  date = new Date(referenceDate);
+  date.setFullYear(year, monthIndex, day);
+  date.setHours(hours, minutes, 0, 0);
+
+  return {
+    text: value.trim(),
+    date,
+  };
+}
+
+function courseLine(value: string | undefined): string | undefined {
+  if (!value || /^(Formative|Summative|Assessment|Submitted|Pending|Late|Missing|Overdue|Not Submitted|Not Assessed Yet)$/i.test(value)) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function isTaskStatus(value: string): boolean {
+  return /^(Pending|Submitted|Late|Missing|Overdue|Not Submitted|Not Assessed Yet|Complete|Completed|Returned|Excused)$/i.test(
+    value,
+  );
+}
+
+function isLikelyTaskPageTitle(value: string): boolean {
+  return (
+    isLikelyTaskTitle(value) &&
+    !/^(Upcoming|Past|Overdue|All Classes and Year Groups|Show More|Guides|Submit Coursework|Privacy Preferences)$/i.test(
+      value,
+    ) &&
+    !/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+\d{1,2}$/i.test(
+      value,
+    )
+  );
+}
+
+function itemStartIndexForDue(lines: string[], dueIndex: number): number {
+  return dueIndex >= 2 && isTaskDateHeading(lines[dueIndex - 2]) ? dueIndex - 2 : dueIndex - 1;
+}
+
+function footerIndex(lines: string[], start: number): number | undefined {
+  const index = lines
+    .slice(start)
+    .findIndex((line) => /^(Show More|Guides|Chat Bot|Privacy Preferences|Customize|Accept Only Necessary|Accept All)$/i.test(line));
+  return index >= 0 ? start + index : undefined;
+}
+
+function isTaskDateHeading(value: string): boolean {
+  return /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+\d{1,2}$/i.test(
+    value,
+  );
+}
+
+function hrefForTitle(title: string, links: LinkSummary[]): string | undefined {
+  const normalizedTitle = normalizeComparable(title);
+  return (
+    links.find((link) => normalizeComparable(link.text) === normalizedTitle && /\/core_tasks\//.test(link.href))
+      ?.href ??
+    links.find((link) => normalizeComparable(link.text).includes(normalizedTitle) && /\/core_tasks\//.test(link.href))
+      ?.href
+  );
+}
+
+function normalizeComparable(value: string): string {
+  return cleanTextLine(value).toLowerCase();
+}
+
+function cleanTextLine(value: string): string {
+  return value.replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").trim();
 }
