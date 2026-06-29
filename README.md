@@ -66,6 +66,9 @@ npm install
 npm run build
 npm run deploy
 
+如果学校登录页或账号策略不允许自动提交密码，请改用手动登录保存会话：
+npm run login
+
 然后把这个 MCP server 配置为 stdio：
 node /绝对路径/managebac-mcp/dist/index.js
 ```
@@ -101,6 +104,14 @@ npm run deploy
 
 `deploy` 会先构建项目，然后进入同一个交互式配置向导。密码输入不会回显，生成的 `.env` 权限会设置为 `0600`。
 
+如果账号刚被锁定，先不要反复运行自动登录。服务会在一次失败登录后进入本地冷却期，默认 15 分钟。确认网页可以手动登录后，可以运行：
+
+```bash
+npm run login
+```
+
+这个命令会打开浏览器让你手动登录，然后把登录态保存到 `.managebac/storage-state.json`，后续 MCP 工具会复用它。
+
 也可以手动复制示例配置：
 
 ```bash
@@ -112,6 +123,13 @@ cp .env.example .env
 ```env
 MANAGEBAC_EMAIL=your.email@example.com
 MANAGEBAC_PASSWORD=your-password
+```
+
+可选登录保护配置：
+
+```env
+MANAGEBAC_LOGIN_COOLDOWN_MS=900000
+MANAGEBAC_LOGIN_FORCE=false
 ```
 
 `.env`、登录态和调试文件已经在 `.gitignore` 中忽略。不要把账号密码写进代码或提交。

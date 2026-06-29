@@ -12,8 +12,11 @@ export interface ManageBacConfig {
   password?: string;
   headless: boolean;
   timeoutMs: number;
+  loginCooldownMs: number;
+  forceLogin: boolean;
   storageStatePath: string;
   debugDir: string;
+  loginFailurePath: string;
 }
 
 function boolFromEnv(value: string | undefined, fallback: boolean): boolean {
@@ -61,10 +64,13 @@ export function loadConfig(): ManageBacConfig {
     password: process.env.MANAGEBAC_PASSWORD,
     headless: boolFromEnv(process.env.MANAGEBAC_HEADLESS, true),
     timeoutMs: intFromEnv(process.env.MANAGEBAC_TIMEOUT_MS, 30_000),
+    loginCooldownMs: intFromEnv(process.env.MANAGEBAC_LOGIN_COOLDOWN_MS, 15 * 60 * 1000),
+    forceLogin: boolFromEnv(process.env.MANAGEBAC_LOGIN_FORCE, false),
     storageStatePath: absoluteFromPackageRoot(
       process.env.MANAGEBAC_STORAGE_STATE || ".managebac/storage-state.json",
     ),
     debugDir: absoluteFromPackageRoot(process.env.MANAGEBAC_DEBUG_DIR || ".managebac/debug"),
+    loginFailurePath: absoluteFromPackageRoot(".managebac/login-failure.json"),
   };
 }
 

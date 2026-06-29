@@ -66,6 +66,9 @@ npm install
 npm run build
 npm run deploy
 
+If your school login page or account policy does not allow automatic password submission, use manual browser login instead:
+npm run login
+
 Then configure this MCP server as stdio:
 node /absolute/path/managebac-mcp/dist/index.js
 ```
@@ -101,6 +104,14 @@ npm run deploy
 
 `deploy` builds the project first, then starts the same interactive configuration wizard. Password input is hidden, and the generated `.env` file is written with `0600` permissions.
 
+If the account was just locked, do not keep retrying automatic login. The server records a local cooldown after one failed login attempt, defaulting to 15 minutes. After confirming that browser login works, run:
+
+```bash
+npm run login
+```
+
+This opens a browser for manual login and saves the session to `.managebac/storage-state.json`, which MCP tools will reuse.
+
 You can also copy the example config manually:
 
 ```bash
@@ -112,6 +123,13 @@ Then fill in:
 ```env
 MANAGEBAC_EMAIL=your.email@example.com
 MANAGEBAC_PASSWORD=your-password
+```
+
+Optional login protection config:
+
+```env
+MANAGEBAC_LOGIN_COOLDOWN_MS=900000
+MANAGEBAC_LOGIN_FORCE=false
 ```
 
 `.env`, browser login state, and debug files are ignored by `.gitignore`. Do not commit account credentials.

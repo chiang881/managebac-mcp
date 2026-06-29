@@ -9,6 +9,8 @@ const envPath = path.resolve(process.cwd(), ".env");
 const defaults = {
   MANAGEBAC_HEADLESS: "true",
   MANAGEBAC_TIMEOUT_MS: "30000",
+  MANAGEBAC_LOGIN_COOLDOWN_MS: "900000",
+  MANAGEBAC_LOGIN_FORCE: "false",
   MANAGEBAC_STORAGE_STATE: ".managebac/storage-state.json",
   MANAGEBAC_DEBUG_DIR: ".managebac/debug",
 };
@@ -122,6 +124,8 @@ async function writeEnv(values: Record<string, string>): Promise<void> {
     "MANAGEBAC_PASSWORD",
     "MANAGEBAC_HEADLESS",
     "MANAGEBAC_TIMEOUT_MS",
+    "MANAGEBAC_LOGIN_COOLDOWN_MS",
+    "MANAGEBAC_LOGIN_FORCE",
     "MANAGEBAC_STORAGE_STATE",
     "MANAGEBAC_DEBUG_DIR",
   ];
