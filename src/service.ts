@@ -225,11 +225,16 @@ export class ManageBacService {
     }
 
     const grades = dedupeGrades(items).slice(0, options.maxItems);
+    const summary = computeGpaSummary(
+      discovery.snapshots.map((snapshot) => snapshot.text),
+      grades,
+    );
+    if (summary.explicitGpa === undefined) {
+      throw new Error("No explicit GPA found on ManageBac pages. GPA estimation is disabled.");
+    }
+
     return {
-      summary: computeGpaSummary(
-        discovery.snapshots.map((snapshot) => snapshot.text),
-        grades,
-      ),
+      summary,
       grades,
       pagesVisited: discovery.snapshots.map((snapshot) => snapshot.url),
       errors: discovery.errors,
@@ -324,12 +329,17 @@ export class ManageBacService {
     }
 
     const grades = dedupeGrades(items).slice(0, options.maxItems);
+    const summary = computeGpaSummary(
+      discovery.snapshots.map((snapshot) => snapshot.text),
+      grades,
+    );
+    if (summary.explicitGpa === undefined) {
+      throw new Error(`No explicit GPA found for class "${target.name}". GPA estimation is disabled.`);
+    }
+
     return {
       class: target,
-      summary: computeGpaSummary(
-        discovery.snapshots.map((snapshot) => snapshot.text),
-        grades,
-      ),
+      summary,
       grades,
       pagesVisited: discovery.snapshots.map((snapshot) => snapshot.url),
       errors: discovery.errors,

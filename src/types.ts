@@ -59,8 +59,6 @@ export interface GradeWeightItem {
 
 export interface GpaSummary {
   explicitGpa?: number;
-  estimatedGpa?: number;
-  averagePercent?: number;
   scale: string;
   notes: string[];
   components: Array<{

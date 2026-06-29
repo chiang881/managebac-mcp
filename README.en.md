@@ -20,12 +20,12 @@
 
 ## Connect ManageBac To Your AI Agent
 
-This is a local stdio MCP server that lets Claude Code, OpenCode, and other AI agents read ManageBac deadlines, grade-like entries, and GPA or estimated GPA through a student account.
+This is a local stdio MCP server that lets Claude Code, OpenCode, and other AI agents read ManageBac deadlines, grade-like entries, and explicitly displayed GPA through a student account.
 
-The default instance is:
+Configure your ManageBac instance URL during deployment, for example:
 
 ```env
-MANAGEBAC_BASE_URL=https://beijing101.managebac.cn
+MANAGEBAC_BASE_URL=https://your-school.managebac.com
 ```
 
 ## ✨ Features
@@ -33,7 +33,7 @@ MANAGEBAC_BASE_URL=https://beijing101.managebac.cn
 - Get the class / course list
 - Read all DDLs, and read DDLs for one class
 - Read all grade-like entries, and read grades for one class
-- Read global GPA / class GPA; estimate an unweighted 4.0 GPA when no official GPA is visible
+- Read global GPA / class GPA; return an error when no explicit GPA is visible
 - Read the latest N grades for one class
 - Read grade category weights / proportions for one class
 - Reuse browser login state to avoid signing in for every tool call
@@ -44,12 +44,11 @@ MANAGEBAC_BASE_URL=https://beijing101.managebac.cn
 - `managebac_check_session`: sign in and confirm the student homepage can be read
 - `managebac_get_classes`: get the class / course list
 - `managebac_get_all_deadlines`: get all DDLs
-- `managebac_get_deadlines`: get all DDLs with optional custom path support
 - `managebac_get_class_deadlines`: get DDLs for one class
 - `managebac_get_grades`: get all grade / score-like entries
 - `managebac_get_class_grades`: get grades for one class
-- `managebac_get_gpa`: read or estimate global GPA
-- `managebac_get_class_gpa`: read or estimate GPA for one class
+- `managebac_get_gpa`: read explicitly displayed global GPA, or return an error when unavailable
+- `managebac_get_class_gpa`: read explicitly displayed GPA for one class, or return an error when unavailable
 - `managebac_get_recent_class_grades`: read the latest N grades for one class
 - `managebac_get_class_grade_weights`: read grade category weights for one class
 - `managebac_list_links`: list links on an authenticated page to find exact class paths
@@ -141,7 +140,7 @@ You can also put configuration directly in the MCP client's `env` block:
       "command": "node",
       "args": ["/Users/jiangzongji/Desktop/main/managebac mcp/dist/index.js"],
       "env": {
-        "MANAGEBAC_BASE_URL": "https://beijing101.managebac.cn",
+        "MANAGEBAC_BASE_URL": "https://your-school.managebac.com",
         "MANAGEBAC_EMAIL": "your.email@example.com",
         "MANAGEBAC_PASSWORD": "your-password"
       }
@@ -160,4 +159,4 @@ managebac_list_links({ "match": "grade" })
 managebac_debug_snapshot({ "path": "/student/classes/your-class-path/core/tasks" })
 ```
 
-Then pass the discovered path to `managebac_get_deadlines` or `managebac_get_gpa`.
+Then pass the discovered class path to `managebac_get_class_deadlines` or `managebac_get_class_gpa`.

@@ -33,8 +33,12 @@ function absoluteFromPackageRoot(value: string): string {
   return path.isAbsolute(value) ? value : path.resolve(packageRoot, value);
 }
 
-function normalizeBaseUrl(raw: string | undefined): string {
-  const value = raw?.trim() || "https://beijing101.managebac.cn";
+function normalizeBaseUrl(raw: string | undefined): string | undefined {
+  const value = raw?.trim();
+  if (!value) {
+    return undefined;
+  }
+
   const withScheme = /^https?:\/\//i.test(value) ? value : `https://${value}`;
   const url = new URL(withScheme);
   url.pathname = "";
@@ -44,8 +48,15 @@ function normalizeBaseUrl(raw: string | undefined): string {
 }
 
 export function loadConfig(): ManageBacConfig {
+  const baseUrl = normalizeBaseUrl(process.env.MANAGEBAC_BASE_URL);
+  if (!baseUrl) {
+    throw new Error(
+      "Missing MANAGEBAC_BASE_URL. Run `npm run configure`, copy .env.example to .env, or pass it in the MCP server env.",
+    );
+  }
+
   return {
-    baseUrl: normalizeBaseUrl(process.env.MANAGEBAC_BASE_URL),
+    baseUrl,
     email: process.env.MANAGEBAC_EMAIL?.trim(),
     password: process.env.MANAGEBAC_PASSWORD,
     headless: boolFromEnv(process.env.MANAGEBAC_HEADLESS, true),

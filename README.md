@@ -20,12 +20,12 @@
 
 ## 为您的 AI Agent 接入 ManageBac
 
-这是一个本地 stdio MCP 服务器，可以让 Claude Code、OpenCode 等 AI Agent 通过学生账号读取 ManageBac 中的 DDL、成绩条目和 GPA/估算 GPA。
+这是一个本地 stdio MCP 服务器，可以让 Claude Code、OpenCode 等 AI Agent 通过学生账号读取 ManageBac 中的 DDL、成绩条目和页面明确显示的 GPA。
 
-默认实例已设置为：
+实例地址需要在部署时配置，例如：
 
 ```env
-MANAGEBAC_BASE_URL=https://beijing101.managebac.cn
+MANAGEBAC_BASE_URL=https://your-school.managebac.com
 ```
 
 ## ✨ 功能特性
@@ -33,7 +33,7 @@ MANAGEBAC_BASE_URL=https://beijing101.managebac.cn
 - 获取 class / course 列表
 - 查看全部 DDL，以及查看单科 DDL
 - 查看全部成绩，以及查看某一门 class 的成绩
-- 读取全局 GPA / 单科 GPA；读不到官方 GPA 时自动估算非加权 4.0 GPA
+- 读取全局 GPA / 单科 GPA；读不到页面明确显示的 GPA 时直接返回 error
 - 读取某一门课近期 N 条成绩
 - 读取某一门课的成绩占比 / category weight
 - 登录态复用，避免每次工具调用都重新登录
@@ -44,12 +44,11 @@ MANAGEBAC_BASE_URL=https://beijing101.managebac.cn
 - `managebac_check_session`: 登录并确认能读取学生首页
 - `managebac_get_classes`: 获取 class / course 列表
 - `managebac_get_all_deadlines`: 查看全部 DDL
-- `managebac_get_deadlines`: 查看全部 DDL，支持传入自定义 path
 - `managebac_get_class_deadlines`: 查看单科 DDL
 - `managebac_get_grades`: 查看全部成绩 / 分数条目
 - `managebac_get_class_grades`: 获取某一门 class 的成绩
-- `managebac_get_gpa`: 读取或估算全局 GPA
-- `managebac_get_class_gpa`: 读取或估算单科 GPA
+- `managebac_get_gpa`: 读取页面明确显示的全局 GPA，读不到时返回 error
+- `managebac_get_class_gpa`: 读取页面明确显示的单科 GPA，读不到时返回 error
 - `managebac_get_recent_class_grades`: 读取这门 class 的近期 N 条成绩
 - `managebac_get_class_grade_weights`: 读取这门课的成绩占比
 - `managebac_list_links`: 列出登录后页面链接，用来找到某个 class 的精确路径
@@ -141,7 +140,7 @@ MANAGEBAC_PASSWORD=your-password
       "command": "node",
       "args": ["/Users/jiangzongji/Desktop/main/managebac mcp/dist/index.js"],
       "env": {
-        "MANAGEBAC_BASE_URL": "https://beijing101.managebac.cn",
+        "MANAGEBAC_BASE_URL": "https://your-school.managebac.com",
         "MANAGEBAC_EMAIL": "your.email@example.com",
         "MANAGEBAC_PASSWORD": "your-password"
       }
@@ -160,4 +159,4 @@ managebac_list_links({ "match": "grade" })
 managebac_debug_snapshot({ "path": "/student/classes/你的class路径/core/tasks" })
 ```
 
-然后把找到的 path 传给 `managebac_get_deadlines` 或 `managebac_get_gpa` 的 `path` 参数。
+然后把找到的 class path 传给 `managebac_get_class_deadlines` 或 `managebac_get_class_gpa` 的 `path` 参数。

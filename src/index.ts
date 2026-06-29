@@ -6,7 +6,7 @@ import { loadConfig } from "./config.js";
 import { ManageBacWebClient } from "./managebacWebClient.js";
 import { ManageBacService } from "./service.js";
 
-const config = loadConfig();
+const config = loadConfigOrExit();
 const client = new ManageBacWebClient(config);
 const service = new ManageBacService(client);
 let queue: Promise<void> = Promise.resolve();
@@ -50,32 +50,6 @@ server.registerTool(
         daysAhead: daysAhead ?? 30,
         includeCompleted: includeCompleted ?? false,
         maxItems: maxItems ?? 50,
-      }),
-    ),
-);
-
-server.registerTool(
-  "managebac_get_deadlines",
-  {
-    description:
-      "Get upcoming ManageBac DDL/deadlines, tasks, assignments, assessments, and calendar-like due items for the logged-in student.",
-    inputSchema: {
-      daysAhead: z.number().int().min(1).max(366).optional().describe("How many days ahead to include. Defaults to 30."),
-      includeCompleted: z.boolean().optional().describe("Include submitted/completed tasks. Defaults to false."),
-      maxItems: z.number().int().min(1).max(200).optional().describe("Maximum items to return. Defaults to 50."),
-      path: z
-        .string()
-        .optional()
-        .describe("Optional ManageBac path or URL to scrape instead of automatic discovery, e.g. /student/classes/123/core/tasks."),
-    },
-  },
-  async ({ daysAhead, includeCompleted, maxItems, path }) =>
-    runTool(() =>
-      service.getDeadlines({
-        daysAhead: daysAhead ?? 30,
-        includeCompleted: includeCompleted ?? false,
-        maxItems: maxItems ?? 50,
-        path,
       }),
     ),
 );
@@ -152,8 +126,7 @@ server.registerTool(
 server.registerTool(
   "managebac_get_gpa",
   {
-    description:
-      "Read explicit GPA from ManageBac if present; otherwise estimate an unweighted 4.0 GPA from scraped percentages or IB 1-7 grades.",
+    description: "Read explicit GPA from ManageBac. Returns an error when no explicit GPA is visible.",
     inputSchema: {
       maxItems: z.number().int().min(1).max(300).optional().describe("Maximum grade items to use. Defaults to 100."),
       path: z
@@ -174,8 +147,7 @@ server.registerTool(
 server.registerTool(
   "managebac_get_class_gpa",
   {
-    description:
-      "Read explicit GPA for one ManageBac class if present; otherwise estimate an unweighted 4.0 GPA from that class's grades.",
+    description: "Read explicit GPA for one ManageBac class. Returns an error when no explicit GPA is visible.",
     inputSchema: {
       classId: z.string().optional().describe("ManageBac class id, usually found in /classes/{id}."),
       className: z.string().optional().describe("Class/course name substring. Use managebac_get_classes first if unsure."),
@@ -307,6 +279,15 @@ function toStructuredContent(value: unknown): Record<string, unknown> {
   }
 
   return { value };
+}
+
+function loadConfigOrExit() {
+  try {
+    return loadConfig();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
 }
 
 async function main(): Promise<void> {

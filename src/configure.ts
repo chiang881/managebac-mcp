@@ -7,7 +7,6 @@ import dotenv from "dotenv";
 
 const envPath = path.resolve(process.cwd(), ".env");
 const defaults = {
-  MANAGEBAC_BASE_URL: "https://beijing101.managebac.cn",
   MANAGEBAC_HEADLESS: "true",
   MANAGEBAC_TIMEOUT_MS: "30000",
   MANAGEBAC_STORAGE_STATE: ".managebac/storage-state.json",
@@ -23,7 +22,7 @@ async function main(): Promise<void> {
   const rl = createInterface({ input, output });
 
   try {
-    const baseUrl = await ask(rl, "ManageBac instance URL", existing.MANAGEBAC_BASE_URL || defaults.MANAGEBAC_BASE_URL);
+    const baseUrl = await ask(rl, "ManageBac instance URL, e.g. https://school.managebac.com", existing.MANAGEBAC_BASE_URL || "");
     const email = await ask(rl, "ManageBac account/email", existing.MANAGEBAC_EMAIL || "");
     const previousPassword = existing.MANAGEBAC_PASSWORD || "";
     const password = await askHidden(

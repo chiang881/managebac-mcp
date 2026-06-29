@@ -195,68 +195,22 @@ export function toGradeItems(rawItems: RawExtractedItem[], sourceUrl: string): G
 }
 
 export function computeGpaSummary(pageTexts: string[], grades: GradeItem[]): GpaSummary {
+  void grades;
   const joinedText = pageTexts.join("\n");
   const explicitGpa = extractExplicitGpa(joinedText);
-  const components = grades
-    .map((grade) => {
-      const percent = extractPercentValue(grade.scoreText);
-      if (percent !== undefined) {
-        return {
-          title: grade.title,
-          course: grade.course,
-          value: percent,
-          source: "percent" as const,
-        };
-      }
-
-      const ibGrade = extractIbGrade(grade.gradeText);
-      if (ibGrade !== undefined) {
-        return {
-          title: grade.title,
-          course: grade.course,
-          value: ibGrade,
-          source: "ib-grade" as const,
-        };
-      }
-
-      return undefined;
-    })
-    .filter((component): component is NonNullable<typeof component> => component !== undefined);
-
-  const percentComponents = components.filter((component) => component.source === "percent");
-  const averagePercent =
-    percentComponents.length > 0
-      ? round(percentComponents.reduce((sum, component) => sum + component.value, 0) / percentComponents.length, 2)
-      : undefined;
-
-  const gpaValues =
-    percentComponents.length > 0
-      ? percentComponents.map((component) => percentToGpa(component.value))
-      : components
-          .filter((component) => component.source === "ib-grade")
-          .map((component) => ibGradeToGpa(component.value));
-
-  const estimatedGpa =
-    explicitGpa === undefined && gpaValues.length > 0
-      ? round(gpaValues.reduce((sum, value) => sum + value, 0) / gpaValues.length, 2)
-      : undefined;
 
   const notes = [
     explicitGpa !== undefined
       ? "Found an explicit GPA value on the scraped page."
       : "No explicit GPA value found on the scraped pages.",
-    estimatedGpa !== undefined
-      ? "Estimated GPA uses a common unweighted 4.0 conversion and may differ from your school's official policy."
-      : "Not enough numeric grade data to estimate GPA.",
+    "GPA estimation is disabled. Percentages and IB 1-7 grades are never converted into GPA.",
   ];
 
   return {
     explicitGpa,
-    estimatedGpa,
-    averagePercent,
-    scale: explicitGpa !== undefined ? "ManageBac page value" : "estimated unweighted 4.0",
+    scale: "ManageBac page value",
     notes,
-    components: components.slice(0, 100),
+    components: [],
   };
 }
 
@@ -325,62 +279,4 @@ function firstMatch(text: string, pattern: RegExp): string | undefined {
 function extractExplicitGpa(text: string): number | undefined {
   const match = text.match(/(?:\bGPA\b|Grade Point Average)\s*(?:[:=]|is)?\s*([0-4](?:\.\d{1,3})?)/i);
   return match ? Number.parseFloat(match[1]) : undefined;
-}
-
-function extractPercentValue(scoreText?: string): number | undefined {
-  if (!scoreText) {
-    return undefined;
-  }
-
-  const percent = scoreText.match(/(\d{1,3}(?:\.\d+)?)\s*%/);
-  if (percent) {
-    const value = Number.parseFloat(percent[1]);
-    return value <= 100 ? value : undefined;
-  }
-
-  const fraction = scoreText.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
-  if (fraction) {
-    const earned = Number.parseFloat(fraction[1]);
-    const possible = Number.parseFloat(fraction[2]);
-    return possible > 0 ? round((earned / possible) * 100, 2) : undefined;
-  }
-
-  return undefined;
-}
-
-function extractIbGrade(gradeText?: string): number | undefined {
-  if (!gradeText) {
-    return undefined;
-  }
-
-  const match = gradeText.match(/\b([1-7])\s*(?:\/\s*7)?\b/);
-  return match ? Number.parseInt(match[1], 10) : undefined;
-}
-
-function percentToGpa(percent: number): number {
-  if (percent >= 93) return 4;
-  if (percent >= 90) return 3.7;
-  if (percent >= 87) return 3.3;
-  if (percent >= 83) return 3;
-  if (percent >= 80) return 2.7;
-  if (percent >= 77) return 2.3;
-  if (percent >= 73) return 2;
-  if (percent >= 70) return 1.7;
-  if (percent >= 67) return 1.3;
-  if (percent >= 65) return 1;
-  return 0;
-}
-
-function ibGradeToGpa(grade: number): number {
-  if (grade >= 7) return 4;
-  if (grade === 6) return 3.7;
-  if (grade === 5) return 3;
-  if (grade === 4) return 2;
-  if (grade === 3) return 1;
-  return 0;
-}
-
-function round(value: number, decimals: number): number {
-  const factor = 10 ** decimals;
-  return Math.round(value * factor) / factor;
 }
