@@ -1,0 +1,39 @@
+{
+  "name": "managebac-mcp",
+  "version": "1.0.0",
+  "description": "Local MCP server for reading ManageBac deadlines, grades, and GPA-like summaries.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "managebac-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "configure": "tsx src/configure.ts",
+    "deploy": "npm run build && node dist/configure.js",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "install-browser": "npx playwright install chromium",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "managebac"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "cheerio": "^1.2.0",
+    "chrono-node": "^2.9.1",
+    "dotenv": "^17.4.2",
+    "playwright": "^1.61.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
