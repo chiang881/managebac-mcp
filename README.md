@@ -28,17 +28,54 @@
 MANAGEBAC_BASE_URL=https://beijing101.managebac.cn
 ```
 
-## 功能
+## ✨ 功能特性
 
-- 查看 DDL、任务、作业、评估和日历类 due items
-- 查看成绩、分数、报告页中类似 grade/score 的条目
-- 优先读取页面里的明确 GPA；读不到时按百分制或 IB 1-7 成绩估算非加权 4.0 GPA
+- 获取 class / course 列表
+- 查看全部 DDL，以及查看单科 DDL
+- 查看全部成绩，以及查看某一门 class 的成绩
+- 读取全局 GPA / 单科 GPA；读不到官方 GPA 时自动估算非加权 4.0 GPA
+- 读取某一门课近期 N 条成绩
+- 读取某一门课的成绩占比 / category weight
 - 登录态复用，避免每次工具调用都重新登录
 - 交互式部署配置，运行时询问实例地址、账号和密码
 
-## 安装
+## 🛠️ 工具列表
+
+- `managebac_check_session`: 登录并确认能读取学生首页
+- `managebac_get_classes`: 获取 class / course 列表
+- `managebac_get_all_deadlines`: 查看全部 DDL
+- `managebac_get_deadlines`: 查看全部 DDL，支持传入自定义 path
+- `managebac_get_class_deadlines`: 查看单科 DDL
+- `managebac_get_grades`: 查看全部成绩 / 分数条目
+- `managebac_get_class_grades`: 获取某一门 class 的成绩
+- `managebac_get_gpa`: 读取或估算全局 GPA
+- `managebac_get_class_gpa`: 读取或估算单科 GPA
+- `managebac_get_recent_class_grades`: 读取这门 class 的近期 N 条成绩
+- `managebac_get_class_grade_weights`: 读取这门课的成绩占比
+- `managebac_list_links`: 列出登录后页面链接，用来找到某个 class 的精确路径
+- `managebac_debug_snapshot`: 返回某页正文和链接，用于调试抓取规则
+
+## 🚀 安装与使用
+
+### 快速安装：复制以下命令给 AI agent
+
+```text
+请帮我安装并配置 ManageBac MCP：
+git clone https://github.com/chiang881/managebac-mcp.git
+cd managebac-mcp
+npm install
+npm run build
+npm run deploy
+
+然后把这个 MCP server 配置为 stdio：
+node /绝对路径/managebac-mcp/dist/index.js
+```
+
+### 手动安装
 
 ```bash
+git clone https://github.com/chiang881/managebac-mcp.git
+cd managebac-mcp
 npm install
 npm run build
 ```
@@ -49,7 +86,7 @@ npm run build
 npm run install-browser
 ```
 
-## 部署与配置
+### 部署与配置
 
 推荐使用交互式配置向导。它会询问 ManageBac 实例地址、账号和密码，并把结果保存到本地 `.env`：
 
@@ -112,15 +149,6 @@ MANAGEBAC_PASSWORD=your-password
   }
 }
 ```
-
-## MCP Tools
-
-- `managebac_check_session`: 登录并确认能读取学生首页
-- `managebac_get_deadlines`: 获取 DDL、任务、作业、评估和日历类 due items
-- `managebac_get_grades`: 获取成绩、分数、报告页中类似 grade/score 的条目
-- `managebac_get_gpa`: 读取或估算 GPA
-- `managebac_list_links`: 列出登录后页面链接，用来找到某个 class 的精确路径
-- `managebac_debug_snapshot`: 返回某页正文和链接，用于调试抓取规则
 
 ## 调试建议
 

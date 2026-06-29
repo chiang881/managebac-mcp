@@ -26,6 +26,35 @@ server.registerTool(
 );
 
 server.registerTool(
+  "managebac_get_classes",
+  {
+    description: "Get the ManageBac class/course list visible to the logged-in student.",
+    inputSchema: {},
+  },
+  async () => runTool(() => service.getClasses()),
+);
+
+server.registerTool(
+  "managebac_get_all_deadlines",
+  {
+    description: "Get all upcoming ManageBac DDL/deadlines across classes.",
+    inputSchema: {
+      daysAhead: z.number().int().min(1).max(366).optional().describe("How many days ahead to include. Defaults to 30."),
+      includeCompleted: z.boolean().optional().describe("Include submitted/completed tasks. Defaults to false."),
+      maxItems: z.number().int().min(1).max(200).optional().describe("Maximum items to return. Defaults to 50."),
+    },
+  },
+  async ({ daysAhead, includeCompleted, maxItems }) =>
+    runTool(() =>
+      service.getDeadlines({
+        daysAhead: daysAhead ?? 30,
+        includeCompleted: includeCompleted ?? false,
+        maxItems: maxItems ?? 50,
+      }),
+    ),
+);
+
+server.registerTool(
   "managebac_get_deadlines",
   {
     description:
@@ -52,6 +81,32 @@ server.registerTool(
 );
 
 server.registerTool(
+  "managebac_get_class_deadlines",
+  {
+    description: "Get upcoming DDL/deadlines for one ManageBac class/course.",
+    inputSchema: {
+      classId: z.string().optional().describe("ManageBac class id, usually found in /classes/{id}."),
+      className: z.string().optional().describe("Class/course name substring. Use managebac_get_classes first if unsure."),
+      path: z.string().optional().describe("Direct class path or URL, e.g. /student/classes/123/core/tasks."),
+      daysAhead: z.number().int().min(1).max(366).optional().describe("How many days ahead to include. Defaults to 30."),
+      includeCompleted: z.boolean().optional().describe("Include submitted/completed tasks. Defaults to false."),
+      maxItems: z.number().int().min(1).max(200).optional().describe("Maximum items to return. Defaults to 50."),
+    },
+  },
+  async ({ classId, className, path, daysAhead, includeCompleted, maxItems }) =>
+    runTool(() =>
+      service.getClassDeadlines({
+        classId,
+        className,
+        path,
+        daysAhead: daysAhead ?? 30,
+        includeCompleted: includeCompleted ?? false,
+        maxItems: maxItems ?? 50,
+      }),
+    ),
+);
+
+server.registerTool(
   "managebac_get_grades",
   {
     description: "Get grade/score-like items from ManageBac class, task, report, and transcript pages.",
@@ -68,6 +123,28 @@ server.registerTool(
       service.getGrades({
         maxItems: maxItems ?? 100,
         path,
+      }),
+    ),
+);
+
+server.registerTool(
+  "managebac_get_class_grades",
+  {
+    description: "Get grade/score-like items for one ManageBac class/course.",
+    inputSchema: {
+      classId: z.string().optional().describe("ManageBac class id, usually found in /classes/{id}."),
+      className: z.string().optional().describe("Class/course name substring. Use managebac_get_classes first if unsure."),
+      path: z.string().optional().describe("Direct class path or URL."),
+      maxItems: z.number().int().min(1).max(300).optional().describe("Maximum grade items to return. Defaults to 100."),
+    },
+  },
+  async ({ classId, className, path, maxItems }) =>
+    runTool(() =>
+      service.getClassGrades({
+        classId,
+        className,
+        path,
+        maxItems: maxItems ?? 100,
       }),
     ),
 );
@@ -90,6 +167,73 @@ server.registerTool(
       service.getGpa({
         maxItems: maxItems ?? 100,
         path,
+      }),
+    ),
+);
+
+server.registerTool(
+  "managebac_get_class_gpa",
+  {
+    description:
+      "Read explicit GPA for one ManageBac class if present; otherwise estimate an unweighted 4.0 GPA from that class's grades.",
+    inputSchema: {
+      classId: z.string().optional().describe("ManageBac class id, usually found in /classes/{id}."),
+      className: z.string().optional().describe("Class/course name substring. Use managebac_get_classes first if unsure."),
+      path: z.string().optional().describe("Direct class path or URL."),
+      maxItems: z.number().int().min(1).max(300).optional().describe("Maximum grade items to use. Defaults to 100."),
+    },
+  },
+  async ({ classId, className, path, maxItems }) =>
+    runTool(() =>
+      service.getClassGpa({
+        classId,
+        className,
+        path,
+        maxItems: maxItems ?? 100,
+      }),
+    ),
+);
+
+server.registerTool(
+  "managebac_get_recent_class_grades",
+  {
+    description: "Get the latest N grade/score-like entries for one ManageBac class/course.",
+    inputSchema: {
+      classId: z.string().optional().describe("ManageBac class id, usually found in /classes/{id}."),
+      className: z.string().optional().describe("Class/course name substring. Use managebac_get_classes first if unsure."),
+      path: z.string().optional().describe("Direct class path or URL."),
+      limit: z.number().int().min(1).max(100).optional().describe("Number of recent grade items to return. Defaults to 10."),
+    },
+  },
+  async ({ classId, className, path, limit }) =>
+    runTool(() =>
+      service.getRecentClassGrades({
+        classId,
+        className,
+        path,
+        limit: limit ?? 10,
+      }),
+    ),
+);
+
+server.registerTool(
+  "managebac_get_class_grade_weights",
+  {
+    description: "Read grade category weights/proportions for one ManageBac class/course when visible on the page.",
+    inputSchema: {
+      classId: z.string().optional().describe("ManageBac class id, usually found in /classes/{id}."),
+      className: z.string().optional().describe("Class/course name substring. Use managebac_get_classes first if unsure."),
+      path: z.string().optional().describe("Direct class path or URL."),
+      maxItems: z.number().int().min(1).max(100).optional().describe("Maximum weight items to return. Defaults to 50."),
+    },
+  },
+  async ({ classId, className, path, maxItems }) =>
+    runTool(() =>
+      service.getClassGradeWeights({
+        classId,
+        className,
+        path,
+        maxItems: maxItems ?? 50,
       }),
     ),
 );

@@ -167,6 +167,7 @@ export function toDeadlineItems(
 export function toGradeItems(rawItems: RawExtractedItem[], sourceUrl: string): GradeItem[] {
   return rawItems
     .map((raw) => {
+      const parsedDate = parseDate(raw.text, new Date(), false);
       const scoreText = firstMatch(
         raw.text,
         /(\b\d{1,3}(?:\.\d+)?\s*%|\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\b)/,
@@ -183,6 +184,8 @@ export function toGradeItems(rawItems: RawExtractedItem[], sourceUrl: string): G
         scoreText,
         gradeText,
         weightText,
+        dateText: parsedDate?.text,
+        recordedAt: parsedDate?.date?.toISOString(),
         sourceUrl,
         href: raw.href,
         rawText: raw.text,
@@ -302,8 +305,8 @@ function chooseTitle(raw: RawExtractedItem): string {
   return candidate.replace(/\s+/g, " ").trim();
 }
 
-function parseDate(text: string, referenceDate: Date): { text: string; date: Date } | undefined {
-  const results = chrono.parse(text, referenceDate, { forwardDate: true });
+function parseDate(text: string, referenceDate: Date, forwardDate = true): { text: string; date: Date } | undefined {
+  const results = chrono.parse(text, referenceDate, { forwardDate });
   const first = results.find((result) => result.start);
   if (!first) {
     return undefined;

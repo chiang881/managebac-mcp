@@ -3,6 +3,14 @@ export interface LinkSummary {
   href: string;
 }
 
+export interface ClassSummary {
+  id?: string;
+  name: string;
+  path: string;
+  href: string;
+  sourceText: string;
+}
+
 export interface PageSnapshot {
   title: string;
   url: string;
@@ -34,8 +42,18 @@ export interface GradeItem {
   scoreText?: string;
   gradeText?: string;
   weightText?: string;
+  dateText?: string;
+  recordedAt?: string;
   sourceUrl: string;
   href?: string;
+  rawText: string;
+}
+
+export interface GradeWeightItem {
+  category: string;
+  weightText: string;
+  value?: number;
+  sourceUrl: string;
   rawText: string;
 }
 
