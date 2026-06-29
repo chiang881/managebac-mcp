@@ -2,6 +2,10 @@
   <img src="./ManageBac.png" alt="ManageBac MCP Logo" width="160" />
 </p>
 
+<p align="center">
+  <a href="./README.md">简体中文</a> · <a href="./README.en.md">English</a>
+</p>
+
 # ManageBac MCP 服务器
 
 ---
