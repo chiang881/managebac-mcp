@@ -447,18 +447,18 @@ export class ManageBacService {
   }
 
   private async resolveClass(selector: ClassSelector): Promise<ClassSummary> {
-    if (selector.path) {
-      const url = new URL(this.client.urlFor(selector.path));
-      return {
-        id: classIdFromPath(url.pathname),
-        name: selector.className || selector.classId || url.pathname,
-        path: url.pathname + url.search,
-        href: url.toString(),
-        sourceText: selector.path,
-      };
-    }
-
     if (!selector.classId && !selector.className) {
+      if (selector.path) {
+        const url = new URL(this.client.urlFor(selector.path));
+        return {
+          id: classIdFromPath(url.pathname),
+          name: url.pathname,
+          path: url.pathname + url.search,
+          href: url.toString(),
+          sourceText: selector.path,
+        };
+      }
+
       throw new Error("Provide classId, className, or path. Use managebac_get_classes first if you need to discover classes.");
     }
 
@@ -479,6 +479,17 @@ export class ManageBacService {
 
     if (target) {
       return target;
+    }
+
+    if (selector.path) {
+      const url = new URL(this.client.urlFor(selector.path));
+      return {
+        id: classIdFromPath(url.pathname),
+        name: selector.className || selector.classId || url.pathname,
+        path: url.pathname + url.search,
+        href: url.toString(),
+        sourceText: selector.path,
+      };
     }
 
     if (selector.classId) {
