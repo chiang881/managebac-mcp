@@ -40,6 +40,7 @@
 ## 🛠️ 工具列表
 
 - `managebac_check_session`: 确认当前 session 能读取学生首页
+- `managebac_runtime_info`: 查看当前 MCP 进程 pid、build、登录模式和 session 文件状态，用来排查旧进程
 - `managebac_get_classes`: 获取 class / course 列表
 - `managebac_get_all_deadlines`: 查看主页 Tasks & Deadlines，可选 `view: upcoming | past | overdue | all`
 - `managebac_get_class_deadlines`: 查看单科 DDL
@@ -126,16 +127,29 @@ MANAGEBAC_LOGIN_FORCE=false
 
 ### 非交互 / headless 部署
 
-`npm run deploy` 会运行交互式配置向导，非交互环境会报错：
+`npm run deploy` 会构建项目并进入交互式配置向导。非交互环境中可以直接调用 `configure` 的参数模式：
 
-```text
-Interactive terminal required. Set MANAGEBAC_BASE_URL and MANAGEBAC_LOGIN_MODE manually in non-interactive deployments.
+```bash
+npm run build
+npm run configure -- --base-url=https://your-school.managebac.com --mode=manual
 ```
 
-解决方式有两种：
+可用参数：
 
-1. 直接编辑 `.env`，至少写入 `MANAGEBAC_BASE_URL` 和 `MANAGEBAC_LOGIN_MODE=manual`
-2. 在 MCP 客户端配置的 `env` 中传入这些变量
+```text
+--base-url
+--mode manual|password
+--email
+--password
+--storage-state
+--headless
+--timeout-ms
+--login-cooldown-ms
+--login-force
+--debug-dir
+```
+
+也可以直接编辑 `.env`，或在 MCP 客户端配置的 `env` 中传入这些变量。
 
 `.env`、`.managebac/storage-state.json` 和调试文件已经在 `.gitignore` 中忽略。不要把账号密码或登录态提交到 GitHub。
 
@@ -165,6 +179,18 @@ Claude Code 的项目 MCP 配置应写在仓库根目录的 `.mcp.json`，不是
 2. 重启 Claude Code，让 `.mcp.json` 和权限配置生效
 3. 重启后运行 `/mcp`，如果 `managebac` 仍处于 pending 状态，手动批准
 4. 第一次调用每个 MCP tool 时，Claude Code 可能还会要求单独 allow
+
+## 排查旧进程
+
+MCP 客户端会把工具绑定到启动时的 server 进程。更新代码、修改 `.env` 或重新登录后，请重启 / reconnect MCP 客户端，否则旧进程可能继续使用旧代码和旧配置。
+
+服务启动时会向 stderr 输出一行 banner，包含 `version`、`build`、`pid`、`mode`、`baseUrl`、`storageState` 和 `storageStatePath`。也可以调用：
+
+```text
+managebac_runtime_info()
+```
+
+用返回的 `pid`、`build` 和 `storageStateExists` 确认当前工具是否真的连到了新进程。
 
 ## 调试建议
 

@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import * as z from "zod/v4";
 import { loadConfig } from "./config.js";
 import { ManageBacWebClient } from "./managebacWebClient.js";
+import { getRuntimeInfo, runtimeBanner } from "./runtimeInfo.js";
 import { ManageBacService } from "./service.js";
 
 const config = loadConfigOrExit();
@@ -19,10 +20,20 @@ const server = new McpServer({
 server.registerTool(
   "managebac_check_session",
   {
-    description: "Log in to ManageBac and confirm that the session can read the student homepage.",
+    description: "Confirm that the current ManageBac session can read the student homepage.",
     inputSchema: {},
   },
   async () => runTool(() => service.checkSession()),
+);
+
+server.registerTool(
+  "managebac_runtime_info",
+  {
+    description:
+      "Show the live MCP server process, build, login mode, and storage-state path. Useful for detecting stale processes.",
+    inputSchema: {},
+  },
+  async () => runTool(async () => getRuntimeInfo(config)),
 );
 
 server.registerTool(
@@ -302,9 +313,10 @@ function loadConfigOrExit() {
 }
 
 async function main(): Promise<void> {
+  console.error(runtimeBanner(config));
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`managebac-mcp connected for ${config.baseUrl}`);
+  console.error(`managebac-mcp connected pid=${process.pid}`);
 }
 
 process.on("SIGINT", () => {

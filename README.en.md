@@ -40,6 +40,7 @@ The default login flow is manual browser login: run `npm run login`, the program
 ## 🛠️ Tool List
 
 - `managebac_check_session`: confirm the current session can read the student homepage
+- `managebac_runtime_info`: show the live MCP process pid, build, login mode, and session-file state for stale-process debugging
 - `managebac_get_classes`: get the class / course list
 - `managebac_get_all_deadlines`: read homepage Tasks & Deadlines with `view: upcoming | past | overdue | all`
 - `managebac_get_class_deadlines`: get DDLs for one class
@@ -126,16 +127,29 @@ If the account was just locked, do not keep retrying automatic login. Confirm th
 
 ### Non-Interactive / Headless Deployment
 
-`npm run deploy` runs an interactive configuration wizard. In a non-interactive environment it exits with:
+`npm run deploy` builds the project and enters the interactive configuration wizard. In non-interactive environments, call `configure` with flags:
 
-```text
-Interactive terminal required. Set MANAGEBAC_BASE_URL and MANAGEBAC_LOGIN_MODE manually in non-interactive deployments.
+```bash
+npm run build
+npm run configure -- --base-url=https://your-school.managebac.com --mode=manual
 ```
 
-Use either approach:
+Supported flags:
 
-1. Edit `.env` directly and set at least `MANAGEBAC_BASE_URL` and `MANAGEBAC_LOGIN_MODE=manual`
-2. Pass those variables through the MCP client's `env` block
+```text
+--base-url
+--mode manual|password
+--email
+--password
+--storage-state
+--headless
+--timeout-ms
+--login-cooldown-ms
+--login-force
+--debug-dir
+```
+
+You can also edit `.env` directly, or pass those variables through the MCP client's `env` block.
 
 `.env`, `.managebac/storage-state.json`, and debug files are ignored by `.gitignore`. Do not commit account credentials or browser session state.
 
@@ -165,6 +179,18 @@ After adding `.mcp.json`, Claude Code usually needs the approval chain:
 2. Restart Claude Code so `.mcp.json` and permission changes take effect
 3. After restart, run `/mcp`; if `managebac` is still pending, approve it manually
 4. The first call to each MCP tool may still require a separate allow prompt
+
+## Stale Process Debugging
+
+MCP clients bind tools to the server process that was started at session launch. After updating code, changing `.env`, or refreshing login state, restart or reconnect the MCP client. Otherwise the old process may keep serving old code and old config.
+
+On startup, the server writes a one-line banner to stderr with `version`, `build`, `pid`, `mode`, `baseUrl`, `storageState`, and `storageStatePath`. You can also call:
+
+```text
+managebac_runtime_info()
+```
+
+Use the returned `pid`, `build`, and `storageStateExists` to confirm the tool is connected to the new process.
 
 ## Debugging Tips
 

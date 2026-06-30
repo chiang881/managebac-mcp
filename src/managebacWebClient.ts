@@ -115,9 +115,7 @@ export class ManageBacWebClient {
 
   private async login(page: Page): Promise<void> {
     if (this.config.loginMode !== "password") {
-      throw new Error(
-        "ManageBac manual login is enabled. Run `npm run login` to save `.managebac/storage-state.json`, or set MANAGEBAC_LOGIN_MODE=password with MANAGEBAC_EMAIL and MANAGEBAC_PASSWORD to enable automatic password login.",
-      );
+      throw new Error(manualSessionError(this.config.storageStatePath));
     }
 
     requireCredentials(this.config);
@@ -156,8 +154,7 @@ export class ManageBacWebClient {
     if ((await this.hasPasswordField(page)) || /\/login\b|\/sessions\b/i.test(new URL(page.url()).pathname)) {
       const bodyText = await page.locator("body").innerText({ timeout: 5_000 }).catch(() => "");
       const message = firstMatchingLine(bodyText, [/invalid/i, /incorrect/i, /locked/i, /required/i]);
-      const errorMessage =
-        message || "ManageBac login failed. Check MANAGEBAC_EMAIL, MANAGEBAC_PASSWORD, and MANAGEBAC_BASE_URL.";
+      const errorMessage = passwordLoginError(message);
       await this.recordLoginFailure(errorMessage, page);
       throw new Error(errorMessage);
     }
@@ -216,7 +213,7 @@ export class ManageBacWebClient {
     if (elapsed < this.config.loginCooldownMs) {
       const remainingMinutes = Math.ceil((this.config.loginCooldownMs - elapsed) / 60_000);
       throw new Error(
-        `Skipping ManageBac login attempt because the previous login failed recently: ${previousFailure.message}. Wait about ${remainingMinutes} minute(s), or set MANAGEBAC_LOGIN_FORCE=true after confirming credentials in a browser.`,
+        `MANAGEBAC_LOGIN_COOLDOWN: Skipping automatic password login because the previous login failed recently: ${previousFailure.message}. Wait about ${remainingMinutes} minute(s), set MANAGEBAC_LOGIN_FORCE=true after confirming credentials in a browser, or switch to MANAGEBAC_LOGIN_MODE=manual and run \`npm run login\`.`,
       );
     }
   }
@@ -275,4 +272,23 @@ function firstMatchingLine(text: string, patterns: RegExp[]): string | undefined
 
 function normalizeText(text: string): string {
   return text.replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function manualSessionError(storageStatePath: string): string {
+  return [
+    "MANAGEBAC_SESSION_REQUIRED: ManageBac manual login is enabled, but the saved browser session is missing or expired.",
+    "Run `npm run login` from this project to open a browser and save a fresh session.",
+    `Storage state path: ${storageStatePath}.`,
+    "After login, restart or reconnect the MCP client so it binds a fresh server process.",
+    "If you intentionally want automatic password login, set MANAGEBAC_LOGIN_MODE=password with MANAGEBAC_EMAIL and MANAGEBAC_PASSWORD.",
+  ].join(" ");
+}
+
+function passwordLoginError(upstreamMessage: string | undefined): string {
+  const details = upstreamMessage ? ` ManageBac said: ${upstreamMessage}.` : "";
+  return [
+    `MANAGEBAC_AUTH_REJECTED: ManageBac rejected direct email/password login.${details}`,
+    "This usually means the password is wrong or changed, the account is locked, or the account requires SSO/Google/Microsoft login.",
+    "Recommended fix: set MANAGEBAC_LOGIN_MODE=manual, run `npm run login`, then restart or reconnect the MCP client.",
+  ].join(" ");
 }
