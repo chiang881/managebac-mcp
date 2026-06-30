@@ -53,6 +53,15 @@ The default login flow is manual browser login: run `npm run login`, the program
 - `managebac_list_links`: list links on an authenticated page to find exact class paths
 - `managebac_debug_snapshot`: return page text and links for extractor debugging
 
+## Tool Selection Tips
+
+- To read only recent grades, use `managebac_get_recent_class_grades`, for example with `limit: 10`
+- To read only GPA / final summary, use `managebac_get_class_gpa` or `managebac_get_gpa`; output keeps summary only
+- Use `managebac_get_class_grades` only when you need a broader grade list, and keep `maxItems` as small as practical
+- Use `managebac_debug_snapshot` and `managebac_list_links` only for debugging
+
+Regular grade, DDL, and GPA tools use compact output by default. They remove `rawText`, `href`, per-item `sourceUrl`, and `pagesVisited`, then return compact JSON. Debug tools keep the original fields.
+
 ## 🚀 Installation And Usage
 
 ### Quick Install: Copy This To Your AI Agent

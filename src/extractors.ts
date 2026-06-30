@@ -265,7 +265,6 @@ export function extractTasksAndDeadlinesFromText(
 export function toGradeItems(rawItems: RawExtractedItem[], sourceUrl: string): GradeItem[] {
   return rawItems
     .map((raw) => {
-      const parsedDate = parseDate(raw.text, new Date(), false);
       const scoreText = firstMatch(
         raw.text,
         /(\b\d{1,3}(?:\.\d+)?\s*%|\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\b)/,
@@ -275,9 +274,11 @@ export function toGradeItems(rawItems: RawExtractedItem[], sourceUrl: string): G
         /(\b[A-F][+-]?\b|\b(?:IB\s*)?(?:grade|level|mark)\s*[:=\-]?\s*[1-7]\b|\b[1-7]\s*\/\s*7\b)/i,
       );
       const weightText = firstMatch(raw.text, /(\bweight(?:ing)?\s*[:=\-]?\s*\d{1,3}(?:\.\d+)?\s*%)/i);
+      const title = chooseTitle(raw);
+      const parsedDate = parseDate(gradeDateSource(raw.text, title, scoreText, gradeText), new Date(), false);
 
       return {
-        title: chooseTitle(raw),
+        title,
         course: raw.nearbyHeading,
         scoreText,
         gradeText,
@@ -289,7 +290,7 @@ export function toGradeItems(rawItems: RawExtractedItem[], sourceUrl: string): G
         rawText: raw.text,
       };
     })
-    .filter((item) => item.scoreText || item.gradeText || /\b(gpa|grade|score|mark|points?)\b/i.test(item.rawText));
+    .filter((item) => item.scoreText || item.gradeText);
 }
 
 export function computeGpaSummary(pageTexts: string[], grades: GradeItem[]): GpaSummary {
@@ -328,7 +329,30 @@ export function dedupeDeadlines(items: DeadlineItem[]): DeadlineItem[] {
 
 export function dedupeGrades(items: GradeItem[]): GradeItem[] {
   const seen = new Set<string>();
-  return items.filter((item) => {
+  const merged: GradeItem[] = [];
+
+  for (const item of items.filter((candidate) => candidate.scoreText || candidate.gradeText)) {
+    const duplicateIndex = merged.findIndex((candidate) => exactGradeKey(candidate) === exactGradeKey(item));
+    if (duplicateIndex >= 0) {
+      if (gradeItemQuality(item) > gradeItemQuality(merged[duplicateIndex])) {
+        merged[duplicateIndex] = item;
+      }
+      continue;
+    }
+
+    const looseIndex = merged.findIndex((candidate) => looselySameGrade(candidate, item));
+    if (looseIndex >= 0) {
+      const existing = merged[looseIndex];
+      if (isBareGradeItem(existing) || gradeItemQuality(item) > gradeItemQuality(existing)) {
+        merged[looseIndex] = item;
+      }
+      continue;
+    }
+
+    merged.push(item);
+  }
+
+  return merged.filter((item) => {
     const key = [item.title, item.course ?? "", item.scoreText ?? "", item.gradeText ?? "", item.rawText.slice(0, 120)]
       .join("|")
       .toLowerCase();
@@ -338,6 +362,64 @@ export function dedupeGrades(items: GradeItem[]): GradeItem[] {
     seen.add(key);
     return true;
   });
+}
+
+function exactGradeKey(item: GradeItem): string {
+  return [
+    normalizeComparable(item.title),
+    normalizeComparable(item.course ?? ""),
+    item.scoreText ?? "",
+    item.gradeText ?? "",
+    item.dateText ?? "",
+    item.recordedAt ?? "",
+  ]
+    .join("|")
+    .toLowerCase();
+}
+
+function looselySameGrade(a: GradeItem, b: GradeItem): boolean {
+  if (!isBareGradeItem(a) && !isBareGradeItem(b)) {
+    return false;
+  }
+
+  const sameGradeValue =
+    normalizeComparable(a.course ?? "") === normalizeComparable(b.course ?? "") &&
+    normalizeComparable(a.scoreText ?? "") === normalizeComparable(b.scoreText ?? "") &&
+    normalizeComparable(a.gradeText ?? "") === normalizeComparable(b.gradeText ?? "");
+  if (!sameGradeValue) {
+    return false;
+  }
+
+  const aDate = gradeDateKey(a);
+  const bDate = gradeDateKey(b);
+  return !aDate || !bDate || aDate === bDate || isBareGradeItem(a) || isBareGradeItem(b);
+}
+
+function gradeDateKey(item: GradeItem): string {
+  return item.recordedAt?.slice(0, 10) ?? normalizeComparable(item.dateText ?? "");
+}
+
+function isBareGradeItem(item: GradeItem): boolean {
+  const title = normalizeComparable(item.title);
+  const score = normalizeComparable(item.scoreText ?? "");
+  const grade = normalizeComparable(item.gradeText ?? "");
+  return (
+    title === score ||
+    title === grade ||
+    /^[a-f][+-]?$/.test(title) ||
+    /^\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?(?:\s*pts?)?$/.test(title) ||
+    /^\d{1,3}(?:\.\d+)?\s*%$/.test(title)
+  );
+}
+
+function gradeItemQuality(item: GradeItem): number {
+  return [
+    !isBareGradeItem(item) ? 5 : 0,
+    item.course ? 2 : 0,
+    item.dateText || item.recordedAt ? 2 : 0,
+    item.href ? 1 : 0,
+    item.rawText.length > item.title.length ? 1 : 0,
+  ].reduce((sum, value) => sum + value, 0);
 }
 
 function chooseTitle(raw: RawExtractedItem): string {
@@ -372,6 +454,18 @@ function parseDate(text: string, referenceDate: Date, forwardDate = true): { tex
 
 function firstMatch(text: string, pattern: RegExp): string | undefined {
   return text.match(pattern)?.[1]?.trim();
+}
+
+function gradeDateSource(text: string, title: string, scoreText: string | undefined, gradeText: string | undefined): string {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => normalizeComparable(line) !== normalizeComparable(title))
+    .filter((line) => !scoreText || !normalizeComparable(line).includes(normalizeComparable(scoreText)))
+    .filter((line) => !gradeText || normalizeComparable(line) !== normalizeComparable(gradeText));
+
+  return lines.join("\n") || text;
 }
 
 function extractExplicitGpa(text: string): number | undefined {

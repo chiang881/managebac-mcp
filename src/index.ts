@@ -17,6 +17,8 @@ const server = new McpServer({
   version: "1.0.0",
 });
 
+type SlimProfile = "items" | "gpa";
+
 server.registerTool(
   "managebac_check_session",
   {
@@ -64,13 +66,15 @@ server.registerTool(
   },
   async ({ view, daysAhead, includeCompleted, maxItems }) => {
     const selectedView = view ?? "upcoming";
-    return runTool(() =>
-      service.getDeadlines({
-        view: selectedView,
-        daysAhead: daysAhead ?? 30,
-        includeCompleted: includeCompleted ?? (selectedView === "past" || selectedView === "all"),
-        maxItems: maxItems ?? 50,
-      }),
+    return runTool(
+      () =>
+        service.getDeadlines({
+          view: selectedView,
+          daysAhead: daysAhead ?? 30,
+          includeCompleted: includeCompleted ?? (selectedView === "past" || selectedView === "all"),
+          maxItems: maxItems ?? 50,
+        }),
+      { slim: "items" },
     );
   },
 );
@@ -89,16 +93,18 @@ server.registerTool(
     },
   },
   async ({ classId, className, path, daysAhead, includeCompleted, maxItems }) =>
-    runTool(() =>
-      service.getClassDeadlines({
-        classId,
-        className,
-        path,
-        view: "upcoming",
-        daysAhead: daysAhead ?? 30,
-        includeCompleted: includeCompleted ?? false,
-        maxItems: maxItems ?? 50,
-      }),
+    runTool(
+      () =>
+        service.getClassDeadlines({
+          classId,
+          className,
+          path,
+          view: "upcoming",
+          daysAhead: daysAhead ?? 30,
+          includeCompleted: includeCompleted ?? false,
+          maxItems: maxItems ?? 50,
+        }),
+      { slim: "items" },
     ),
 );
 
@@ -107,7 +113,7 @@ server.registerTool(
   {
     description: "Get grade/score-like items from ManageBac class, task, report, and transcript pages.",
     inputSchema: {
-      maxItems: z.number().int().min(1).max(300).optional().describe("Maximum grade items to return. Defaults to 100."),
+      maxItems: z.number().int().min(1).max(300).optional().describe("Maximum grade items to return. Defaults to 50."),
       path: z
         .string()
         .optional()
@@ -115,11 +121,13 @@ server.registerTool(
     },
   },
   async ({ maxItems, path }) =>
-    runTool(() =>
-      service.getGrades({
-        maxItems: maxItems ?? 100,
-        path,
-      }),
+    runTool(
+      () =>
+        service.getGrades({
+          maxItems: maxItems ?? 50,
+          path,
+        }),
+      { slim: "items" },
     ),
 );
 
@@ -131,17 +139,19 @@ server.registerTool(
       classId: z.string().optional().describe("ManageBac class id, usually found in /classes/{id}."),
       className: z.string().optional().describe("Class/course name substring. Use managebac_get_classes first if unsure."),
       path: z.string().optional().describe("Direct class path or URL."),
-      maxItems: z.number().int().min(1).max(300).optional().describe("Maximum grade items to return. Defaults to 100."),
+      maxItems: z.number().int().min(1).max(300).optional().describe("Maximum grade items to return. Defaults to 50."),
     },
   },
   async ({ classId, className, path, maxItems }) =>
-    runTool(() =>
-      service.getClassGrades({
-        classId,
-        className,
-        path,
-        maxItems: maxItems ?? 100,
-      }),
+    runTool(
+      () =>
+        service.getClassGrades({
+          classId,
+          className,
+          path,
+          maxItems: maxItems ?? 50,
+        }),
+      { slim: "items" },
     ),
 );
 
@@ -150,7 +160,7 @@ server.registerTool(
   {
     description: "Read explicit GPA from ManageBac. Returns an error when no explicit GPA is visible.",
     inputSchema: {
-      maxItems: z.number().int().min(1).max(300).optional().describe("Maximum grade items to use. Defaults to 100."),
+      maxItems: z.number().int().min(1).max(300).optional().describe("Maximum grade items to use internally. Defaults to 50."),
       path: z
         .string()
         .optional()
@@ -158,11 +168,13 @@ server.registerTool(
     },
   },
   async ({ maxItems, path }) =>
-    runTool(() =>
-      service.getGpa({
-        maxItems: maxItems ?? 100,
-        path,
-      }),
+    runTool(
+      () =>
+        service.getGpa({
+          maxItems: maxItems ?? 50,
+          path,
+        }),
+      { slim: "gpa" },
     ),
 );
 
@@ -174,17 +186,19 @@ server.registerTool(
       classId: z.string().optional().describe("ManageBac class id, usually found in /classes/{id}."),
       className: z.string().optional().describe("Class/course name substring. Use managebac_get_classes first if unsure."),
       path: z.string().optional().describe("Direct class path or URL."),
-      maxItems: z.number().int().min(1).max(300).optional().describe("Maximum grade items to use. Defaults to 100."),
+      maxItems: z.number().int().min(1).max(300).optional().describe("Maximum grade items to use internally. Defaults to 50."),
     },
   },
   async ({ classId, className, path, maxItems }) =>
-    runTool(() =>
-      service.getClassGpa({
-        classId,
-        className,
-        path,
-        maxItems: maxItems ?? 100,
-      }),
+    runTool(
+      () =>
+        service.getClassGpa({
+          classId,
+          className,
+          path,
+          maxItems: maxItems ?? 50,
+        }),
+      { slim: "gpa" },
     ),
 );
 
@@ -200,13 +214,15 @@ server.registerTool(
     },
   },
   async ({ classId, className, path, limit }) =>
-    runTool(() =>
-      service.getRecentClassGrades({
-        classId,
-        className,
-        path,
-        limit: limit ?? 10,
-      }),
+    runTool(
+      () =>
+        service.getRecentClassGrades({
+          classId,
+          className,
+          path,
+          limit: limit ?? 10,
+        }),
+      { slim: "items" },
     ),
 );
 
@@ -222,13 +238,15 @@ server.registerTool(
     },
   },
   async ({ classId, className, path, maxItems }) =>
-    runTool(() =>
-      service.getClassGradeWeights({
-        classId,
-        className,
-        path,
-        maxItems: maxItems ?? 50,
-      }),
+    runTool(
+      () =>
+        service.getClassGradeWeights({
+          classId,
+          className,
+          path,
+          maxItems: maxItems ?? 50,
+        }),
+      { slim: "items" },
     ),
 );
 
@@ -257,16 +275,16 @@ server.registerTool(
   async ({ path, maxChars }) => runTool(() => service.debugSnapshot(path ?? "/", maxChars ?? 8_000)),
 );
 
-async function runTool<T>(operation: () => Promise<T>) {
+async function runTool<T>(operation: () => Promise<T>, options: { slim?: SlimProfile } = {}) {
   return serialize(async () => {
     try {
       const data = await operation();
-      const structuredContent = toStructuredContent(data);
+      const structuredContent = toStructuredContent(data, options.slim);
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(structuredContent, null, 2),
+            text: JSON.stringify(structuredContent),
           },
         ],
         structuredContent,
@@ -295,12 +313,39 @@ function serialize<T>(operation: () => Promise<T>): Promise<T> {
   return next;
 }
 
-function toStructuredContent(value: unknown): Record<string, unknown> {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+function toStructuredContent(value: unknown, slim?: SlimProfile): Record<string, unknown> {
+  const normalized = slim ? sanitizeForSlim(value, slim) : value;
+
+  if (normalized && typeof normalized === "object" && !Array.isArray(normalized)) {
+    return JSON.parse(JSON.stringify(normalized)) as Record<string, unknown>;
   }
 
-  return { value };
+  return { value: normalized };
+}
+
+function sanitizeForSlim(value: unknown, slim: SlimProfile): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeForSlim(item, slim));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (["rawText", "href", "sourceUrl", "pagesVisited"].includes(key)) {
+      continue;
+    }
+
+    if (slim === "gpa" && key === "grades") {
+      continue;
+    }
+
+    result[key] = sanitizeForSlim(child, slim);
+  }
+
+  return result;
 }
 
 function loadConfigOrExit() {

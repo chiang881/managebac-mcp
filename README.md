@@ -53,6 +53,15 @@
 - `managebac_list_links`: 列出登录后页面链接，用来找到某个 class 的精确路径
 - `managebac_debug_snapshot`: 返回某页正文和链接，用于调试抓取规则
 
+## 取数建议
+
+- 只想看最近几次成绩：用 `managebac_get_recent_class_grades`，例如 `limit: 10`
+- 只想要总评 / GPA：用 `managebac_get_class_gpa` 或 `managebac_get_gpa`，返回结果只保留 summary
+- 需要完整成绩列表时再用 `managebac_get_class_grades`，并按需调小 `maxItems`
+- 排错时再用 `managebac_debug_snapshot` 和 `managebac_list_links`
+
+普通成绩、DDL、GPA 工具默认使用精简输出，会移除 `rawText`、`href`、逐条 `sourceUrl` 和 `pagesVisited`，并使用紧凑 JSON。调试工具保持原始字段。
+
 ## 🚀 安装与使用
 
 ### 快速安装：复制以下命令给 AI agent
