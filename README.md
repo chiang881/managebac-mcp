@@ -111,6 +111,8 @@ MANAGEBAC_STORAGE_STATE=.managebac/storage-state.json
 npm run login
 ```
 
+脚本检测到登录成功后会立即保存 session、关闭浏览器并退出。
+
 ### 自动密码登录
 
 默认不自动提交密码。如果确实需要自动登录，在 `.env` 或 MCP 客户端 `env` 中显式设置：

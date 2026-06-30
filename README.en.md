@@ -111,6 +111,8 @@ After saving config, open a browser for manual login and record the session:
 npm run login
 ```
 
+The script saves the session, closes the browser, and exits immediately once login is detected.
+
 ### Automatic Password Login
 
 The server does not submit passwords by default. If you really need automatic login, explicitly set this in `.env` or in the MCP client `env` block:
